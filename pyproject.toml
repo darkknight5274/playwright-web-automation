@@ -1,7 +1,7 @@
 [project]
-name = "app"
+name = "game-bot"
 version = "0.1.0"
-description = "Add your description here"
+description = "A structured game bot project using Playwright and structlog"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

@@ -21,7 +21,13 @@ async def run_activity(page):
     # Find matching domain config
     domain_settings = None
     for d in domains_config:
-        if d["url"] in netloc:
+        config_url = d.get("url", "")
+        if "://" in config_url:
+            config_netloc = urlparse(config_url).netloc
+        else:
+            config_netloc = config_url
+
+        if config_netloc and config_netloc in netloc:
             domain_settings = d
             break
 
