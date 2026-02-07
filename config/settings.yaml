@@ -12,3 +12,10 @@ auth:
 
 performance:
   block_images: true
+
+domains:
+  - url: "game-v1.com"
+    enabled: true
+    disabled_activities: ["/battle"]
+  - url: "game-v2.com"
+    enabled: true
