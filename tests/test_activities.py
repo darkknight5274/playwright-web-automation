@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from activities.runner import run_activity
-from activities.home import HomeActivity
-from activities.battle import BattleActivity
+from activities.impl.home import HomeActivity
+from activities.impl.battle import BattleActivity
 
 @pytest.mark.asyncio
 async def test_run_activity_home_enabled():

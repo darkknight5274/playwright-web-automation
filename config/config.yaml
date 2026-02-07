@@ -1,0 +1,26 @@
+domains:
+  - name: "game_v1"
+    url: "https://game-v1.com"
+    enabled: true
+    disabled_activities:
+      - "/battle"
+  - name: "game_v2"
+    url: "https://game-v2.com"
+    enabled: true
+    disabled_activities: []
+
+# User requested 'auth credentials'
+auth_credentials:
+  username: "test_user"
+  password: "test_password"
+
+# For backward compatibility with existing tests
+auth:
+  username: "test_user"
+  password: "test_password"
+
+performance:
+  block_images: true
+
+global_settings:
+  check_interval_seconds: 300

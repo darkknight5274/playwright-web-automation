@@ -3,7 +3,7 @@ import pytest
 import yaml
 import structlog
 from utils.logger import logger
-from utils.session import SessionManager
+from utils.session_manager import SessionManager
 
 def test_imports():
     assert playwright is not None

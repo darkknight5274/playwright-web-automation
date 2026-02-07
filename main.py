@@ -1,5 +1,5 @@
 import uvicorn
-from api import app
+from utils.api import app
 
 def main():
     print("Starting Domain Activity API server on port 8000...")
