@@ -55,7 +55,9 @@ async def ensure_authenticated():
             await asyncio.sleep(10) # Placeholder for manual interaction time if it were possible
 
         # Save the state
-        os.makedirs(os.path.dirname(storage_state_path), exist_ok=True)
+        dirname = os.path.dirname(storage_state_path)
+        if dirname:
+            os.makedirs(dirname, exist_ok=True)
         await context.storage_state(path=storage_state_path)
         logger.info("Storage state saved successfully.", path=storage_state_path)
 

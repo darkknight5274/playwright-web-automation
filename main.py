@@ -23,7 +23,7 @@ class Orchestrator:
         self.ad_hoc_active = active
         self.ad_hoc_path = path
         self.state_changed_event.set()
-        self.state_changed_event.clear() # Reset so it can be waited on again
+        self.state_changed_event.clear() # Pulse the event
 
     async def get_activity_func(self, activity_name):
         """
@@ -42,7 +42,6 @@ class Orchestrator:
         """
         logger.info(f"Starting task for domain: {domain_id}")
 
-        # Each task creates its own browser_context using the shared storage_state.json via AsyncSessionManager
         session_manager = AsyncSessionManager(browser=self.browser)
         try:
             page = await session_manager.start()
@@ -65,10 +64,17 @@ class Orchestrator:
                     except Exception as e:
                         logger.error(f"[{domain_id}] Error during ad-hoc navigation", error=str(e))
 
-                    # Wait for any state change
+                    # Wait for any state change, with a periodic re-check to avoid missing pulses
                     logger.info(f"[{domain_id}] Waiting for ad-hoc to be deactivated or changed...")
-                    waiter = asyncio.create_task(self.state_changed_event.wait())
-                    await waiter
+                    while self.ad_hoc_active and ad_hoc_url == f"{base_url}{self.ad_hoc_path}":
+                        waiter = asyncio.create_task(self.state_changed_event.wait())
+                        try:
+                            await asyncio.wait_for(waiter, timeout=5.0)
+                            break # Event was set
+                        except asyncio.TimeoutError:
+                            pass # Re-check loop condition
+                        finally:
+                            waiter.cancel()
                     continue
 
                 # 2. Regular Flow
@@ -107,7 +113,16 @@ class Orchestrator:
                     logger.warning(f"[{domain_id}] Skipping unknown activity '{activity_name}'")
                     path_index = (path_index + 1) % len(paths)
 
-                await asyncio.sleep(5)
+                # 3. Interruptible sleep between activities
+                sleep_waiter = asyncio.create_task(self.state_changed_event.wait())
+                try:
+                    await asyncio.wait_for(sleep_waiter, timeout=5.0)
+                    logger.info(f"[{domain_id}] Sleep interrupted by state change")
+                except asyncio.TimeoutError:
+                    pass
+                finally:
+                    sleep_waiter.cancel()
+
         except asyncio.CancelledError:
             logger.info(f"[{domain_id}] Task was cancelled")
         except Exception as e:
