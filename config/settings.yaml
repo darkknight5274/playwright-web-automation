@@ -15,19 +15,6 @@ performance:
   block_images: true
 
 domains:
-  example_com:
-    enabled: true
-    base_url: "https://example.com"
-    paths:
-      - path: "/"
-        activity: "basic"
-      - path: "/about"
-        activity: "basic"
-  example_org:
-    enabled: true
-    base_url: "https://example.org"
-    paths:
-      - path: "/"
-        activity: "basic"
-      - path: "/contact"
-        activity: "basic"
+  - "example.com"
+  - "google.com"
+  - "github.com"
