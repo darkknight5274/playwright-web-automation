@@ -1,3 +1,4 @@
+
 # Application settings
 browser:
   headless: true
@@ -8,7 +9,7 @@ auth:
   login_url: "https://example.com/login"
   username: "your_username"
   password: "your_password"
-  storage_state_path: "config/storage_state.json"
+  storage_state_path: "storage_state.json"
 
 performance:
   block_images: true
