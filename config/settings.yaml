@@ -1,0 +1,5 @@
+# Application settings
+browser:
+  headless: true
+  type: "chromium"
+timeout: 30000
