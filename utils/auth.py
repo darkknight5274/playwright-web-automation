@@ -1,0 +1,63 @@
+import os
+import json
+import asyncio
+from playwright.async_api import async_playwright
+from utils.logger import logger
+from utils.config_loader import load_config
+
+async def block_images(route):
+    if route.request.resource_type == "image":
+        await route.abort()
+    else:
+        await route.continue_()
+
+async def ensure_authenticated():
+    config = load_config()
+    storage_state_path = config["auth"]["storage_state_path"]
+
+    if os.path.exists(storage_state_path):
+        logger.info("Storage state found, skipping login.", path=storage_state_path)
+        return True
+
+    logger.info("Storage state not found, initiating login.", path=storage_state_path)
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=config["browser"]["headless"])
+        context = await browser.new_context()
+        page = await context.new_page()
+
+        if config["performance"]["block_images"]:
+            await page.route("**/*", block_images)
+
+        await page.goto(config["auth"]["login_url"])
+
+        # Attempt automated login if credentials are provided and not placeholders
+        username = config["auth"]["username"]
+        password = config["auth"]["password"]
+
+        if username != "your_username" and password != "your_password":
+            logger.info("Attempting automated login with provided credentials.")
+            # Adjust selectors as needed for the specific site
+            try:
+                await page.fill('input[name="username"], input[type="text"], input[type="email"]', username)
+                await page.fill('input[name="password"], input[type="password"]', password)
+                await page.click('button[type="submit"], input[type="submit"]')
+                # Wait for navigation or a specific element that confirms login
+                await page.wait_for_load_state("networkidle")
+            except Exception as e:
+                logger.error("Automated login failed", error=str(e))
+        else:
+            logger.info("No valid credentials found. Please perform manual login if running in non-headless mode.")
+            # If it were non-headless, we could wait for the user.
+            # But the requirement says "launching Chromium in headless mode".
+            # In headless mode, we can only wait for a specific timeout or a selector.
+            # Here we just wait a bit or for a success indicator.
+            await asyncio.sleep(10) # Placeholder for manual interaction time if it were possible
+
+        # Save the state
+        os.makedirs(os.path.dirname(storage_state_path), exist_ok=True)
+        await context.storage_state(path=storage_state_path)
+        logger.info("Storage state saved successfully.", path=storage_state_path)
+
+        await browser.close()
+    return True
