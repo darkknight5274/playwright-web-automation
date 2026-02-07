@@ -1,0 +1,32 @@
+# Application settings
+browser:
+  headless: true
+  type: "chromium"
+timeout: 30000
+
+auth:
+  login_url: "https://example.com/login"
+  username: "your_username"
+  password: "your_password"
+  storage_state_path: "storage_state.json"
+
+performance:
+  block_images: true
+
+domains:
+  example_com:
+    enabled: true
+    base_url: "https://example.com"
+    paths:
+      - path: "/"
+        activity: "basic"
+      - path: "/about"
+        activity: "basic"
+  example_org:
+    enabled: true
+    base_url: "https://example.org"
+    paths:
+      - path: "/"
+        activity: "basic"
+      - path: "/contact"
+        activity: "basic"

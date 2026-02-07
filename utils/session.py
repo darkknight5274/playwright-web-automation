@@ -9,17 +9,19 @@ async def block_images(route):
         await route.continue_()
 
 class AsyncSessionManager:
-    def __init__(self):
+    def __init__(self, browser=None):
         self.playwright = None
-        self.browser = None
+        self.browser = browser
         self.context = None
         self.config = load_config()
+        self._external_browser = browser is not None
 
     async def start(self):
-        self.playwright = await async_playwright().start()
-        self.browser = await self.playwright.chromium.launch(
-            headless=self.config["browser"]["headless"]
-        )
+        if not self.browser:
+            self.playwright = await async_playwright().start()
+            self.browser = await self.playwright.chromium.launch(
+                headless=self.config["browser"]["headless"]
+            )
 
         # Load storage state if it exists
         storage_state = self.config["auth"]["storage_state_path"]
@@ -37,10 +39,16 @@ class AsyncSessionManager:
         return page
 
     async def stop(self):
-        if self.browser:
-            await self.browser.close()
-        if self.playwright:
-            await self.playwright.stop()
+        # Only close if we managed it ourselves
+        if not self._external_browser:
+            if self.browser:
+                await self.browser.close()
+            if self.playwright:
+                await self.playwright.stop()
+        else:
+            # If external, just close the context
+            if self.context:
+                await self.context.close()
 
 class SessionManager:
     """Original Sync Session Manager"""
