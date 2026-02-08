@@ -1,5 +1,5 @@
-from activities.home import HomeActivity
-from activities.battle import BattleActivity
+from activities.impl.home import HomeActivity
+from activities.impl.battle import BattleActivity
 from typing import Dict, Type
 from activities.base import BaseActivity
 
