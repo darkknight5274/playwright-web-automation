@@ -1,5 +1,5 @@
 from urllib.parse import urlparse
-from activities.registry import TASK_MAPPING
+from activities.registry import ActivityRegistry
 from utils.config_loader import load_config
 import structlog
 
@@ -44,10 +44,9 @@ async def run_activity(page):
         logger.info("Activity is disabled for this domain", domain=netloc, path=path)
         return
 
-    activity_class = TASK_MAPPING.get(path)
-    if activity_class:
-        logger.info("Running activity", path=path, class_name=activity_class.__name__)
-        activity = activity_class()
+    activity = ActivityRegistry.get_activity(path)
+    if activity:
+        logger.info("Running activity", path=path, class_name=activity.__class__.__name__)
         await activity.execute(page)
     else:
         logger.debug("No activity mapped for path", path=path)

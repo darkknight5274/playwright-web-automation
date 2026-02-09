@@ -1,24 +1,21 @@
-# ADR 001: Strategy Pattern and Centralized Registry for Activity Management
-
-## Status
-Accepted
+# ADR 001: Activity Strategy Pattern and Automated Registry
 
 ## Context
-We are automating an online game across multiple domains (versions/flavors) that share identical URL paths but require isolated execution logic. The system must run 24/7, support parallel domain execution, and allow ad-hoc activity triggering via an API.
-
-### Problems to Solve:
-1. **Coupling:** Hardcoding logic for each domain leads to massive `if/else` blocks and high maintenance.
-2. **Git Conflicts:** Multiple developers/agents editing a single main file for different game paths cause merge hell.
-3. **Dynamic Execution:** We need to trigger specific logic (e.g., `/market`) on-demand without restarting the orchestrator.
+The system needs to manage multiple concurrent activities across different domains. Many domains share identical URL paths (e.g., `/home`, `/battle`) but require domain-specific handling or at least a standardized way to be triggered and executed.
 
 ## Decision
-We will implement the **Strategy Pattern** combined with a **Decorator-based Registry**.
+We will implement a **Strategy Pattern** for all game activities to ensure a consistent interface and allow for parallel execution and ad-hoc triggering.
 
-1. **BaseActivity:** An abstract interface ensuring all activities implement `execute(page)`.
-2. **ActivityRegistry:** A singleton manager that maps URL paths to Activity instances.
-3. **Decentralized Logic:** Each activity (e.g., `/home`, `/battle`) will reside in its own file within `activities/impl/`.
+### Components:
+1.  **BaseActivity**: An abstract base class that defines the required interface:
+    -   `path`: An abstract property defining the URL path this activity handles.
+    -   `execute(page)`: An abstract async method that performs the actual game logic on a Playwright Page.
+2.  **ActivityRegistry**: A centralized registry that:
+    -   Uses a class decorator `@register` to automatically instantiate and map activity classes to their paths.
+    -   Provides methods to retrieve activity instances by path.
+3.  **Discovery**: Implementation modules in `activities/impl/` will be explicitly imported in the registry to trigger automatic registration.
 
 ## Consequences
-- **Positive:** logic is decoupled; new activities can be added by creating a new file without touching the core engine.
-- **Positive:** Enables the FastAPI control panel to look up and execute logic by path string.
-- **Neutral:** Increases initial boilerplate code (abstract classes and decorators).
+-   **Positive**: New activities can be added by simply creating a new class in `activities/impl/` and adding the decorator.
+-   **Positive**: Parallel execution and ad-hoc triggering become trivial as the Orchestrator can simply query the Registry for the appropriate activity by path.
+-   **Negative**: Requires explicit imports of implementations to trigger registration (handled in `activities/registry.py`).
