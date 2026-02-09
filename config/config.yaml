@@ -9,12 +9,11 @@ domains:
     enabled: true
     disabled_activities: []
 
-# User requested 'auth credentials'
 auth_credentials:
   username: "test_user"
   password: "test_password"
 
-# For backward compatibility with existing tests
+# For backward compatibility with existing code/tests
 auth:
   username: "test_user"
   password: "test_password"
