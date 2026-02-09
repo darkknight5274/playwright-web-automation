@@ -13,13 +13,21 @@ auth_credentials:
   username: "test_user"
   password: "test_password"
 
-# For backward compatibility with existing code/tests
+# For backward compatibility and code usage
 auth:
   username: "test_user"
   password: "test_password"
+  storage_state_path: "storage_state.json"
+  login_url: "https://example.com/login"
+
+browser:
+  headless: true
 
 performance:
   block_images: true
 
 global_settings:
-  check_interval_seconds: 300
+  check_interval_seconds: 30
+  activity_order:
+    - "/home"
+    - "/battle"
