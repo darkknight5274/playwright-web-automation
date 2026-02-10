@@ -13,7 +13,7 @@ async def block_images(route):
 
 async def ensure_authenticated():
     config = load_config()
-    storage_state_path = config["auth"]["storage_state_path"]
+    storage_state_path = config["global_settings"]["storage_state_path"]
 
     if os.path.exists(storage_state_path):
         logger.info("Storage state found, skipping login.", path=storage_state_path)
@@ -29,14 +29,14 @@ async def ensure_authenticated():
         if config["performance"]["block_images"]:
             await page.route("**/*", block_images)
 
-        await page.goto(config["auth"]["login_url"])
+        await page.goto(config["global_settings"]["login_url"])
 
-        # Attempt automated login if credentials are provided and not placeholders
-        username = config["auth"]["username"]
-        password = config["auth"]["password"]
+        # Attempt automated login if credentials are provided in environment
+        username = os.getenv("GAME_USERNAME")
+        password = os.getenv("GAME_PASSWORD")
 
-        if username != "your_username" and password != "your_password":
-            logger.info("Attempting automated login with provided credentials.")
+        if username and password:
+            logger.info("Attempting automated login with environment credentials.")
             # Adjust selectors as needed for the specific site
             try:
                 await page.fill('input[name="username"], input[type="text"], input[type="email"]', username)
@@ -47,12 +47,8 @@ async def ensure_authenticated():
             except Exception as e:
                 logger.error("Automated login failed", error=str(e))
         else:
-            logger.info("No valid credentials found. Please perform manual login if running in non-headless mode.")
-            # If it were non-headless, we could wait for the user.
-            # But the requirement says "launching Chromium in headless mode".
-            # In headless mode, we can only wait for a specific timeout or a selector.
-            # Here we just wait a bit or for a success indicator.
-            await asyncio.sleep(10) # Placeholder for manual interaction time if it were possible
+            logger.info("No valid credentials found in environment. Please check your .env file.")
+            await asyncio.sleep(2)
 
         # Save the state
         os.makedirs(os.path.dirname(storage_state_path), exist_ok=True)

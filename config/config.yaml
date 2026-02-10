@@ -9,17 +9,6 @@ domains:
     enabled: true
     disabled_activities: []
 
-auth_credentials:
-  username: "test_user"
-  password: "test_password"
-
-# For backward compatibility and code usage
-auth:
-  username: "test_user"
-  password: "test_password"
-  storage_state_path: "storage_state.json"
-  login_url: "https://example.com/login"
-
 browser:
   headless: true
 
@@ -31,3 +20,5 @@ global_settings:
   activity_order:
     - "/home"
     - "/battle"
+  storage_state_path: "storage_state.json"
+  login_url: "https://example.com/login"

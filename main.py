@@ -1,6 +1,5 @@
 import asyncio
 import signal
-import sys
 from datetime import datetime
 import structlog
 import uvicorn
