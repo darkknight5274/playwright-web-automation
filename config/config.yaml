@@ -1,13 +1,20 @@
 domains:
-  - name: "game_v1"
-    url: "https://game-v1.com"
+  - name: "manga"
+    url: "https://www.mangarpg.com"
     enabled: true
-    disabled_activities:
-      - "/battle"
-  - name: "game_v2"
-    url: "https://game-v2.com"
+    activity_order: ["/training"]
+  - name: "comic"
+    url: "https://www.comicrpg.com"
     enabled: true
-    disabled_activities: []
+    activity_order: ["/training"]
+  - name: "stars"
+    url: "https://www.starsrpg.com"
+    enabled: true
+    activity_order: ["/training"]
+  - name: "hero"
+    url: "https://www.herorpg.com"
+    enabled: true
+    activity_order: ["/training"]
 
 browser:
   headless: true
@@ -21,4 +28,4 @@ global_settings:
     - "/home"
     - "/battle"
   storage_state_path: "storage_state.json"
-  login_url: "https://mangarpg.com/login"
+  login_url: "https://www.mangarpg.com/home.html"

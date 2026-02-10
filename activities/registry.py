@@ -31,3 +31,4 @@ class ActivityRegistry:
 # Note: These are imported here to ensure the decorators are executed.
 import activities.impl.home
 import activities.impl.battle
+import activities.impl.training
