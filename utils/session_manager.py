@@ -22,7 +22,7 @@ class AsyncSessionManager:
         )
 
         # Load storage state if it exists
-        storage_state = self.config["auth"]["storage_state_path"]
+        storage_state = self.config["global_settings"]["storage_state_path"]
         import os
         if os.path.exists(storage_state):
             self.context = await self.browser.new_context(storage_state=storage_state)

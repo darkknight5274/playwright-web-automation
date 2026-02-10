@@ -9,17 +9,16 @@ domains:
     enabled: true
     disabled_activities: []
 
-auth_credentials:
-  username: "test_user"
-  password: "test_password"
-
-# For backward compatibility with existing code/tests
-auth:
-  username: "test_user"
-  password: "test_password"
+browser:
+  headless: true
 
 performance:
   block_images: true
 
 global_settings:
-  check_interval_seconds: 300
+  check_interval_seconds: 30
+  activity_order:
+    - "/home"
+    - "/battle"
+  storage_state_path: "storage_state.json"
+  login_url: "https://example.com/login"

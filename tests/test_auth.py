@@ -16,5 +16,5 @@ async def test_async_session_manager():
 def test_config_loader():
     from utils.config_loader import load_config
     config = load_config()
-    assert "auth" in config
+    assert "global_settings" in config
     assert "performance" in config
