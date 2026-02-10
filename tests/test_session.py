@@ -1,5 +1,5 @@
 import pytest
-from utils.auth import ensure_authenticated
+from utils.session import ensure_authenticated
 from utils.session_manager import AsyncSessionManager
 import os
 

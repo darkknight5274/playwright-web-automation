@@ -37,13 +37,26 @@ async def ensure_authenticated():
 
         if username and password:
             logger.info("Attempting automated login with environment credentials.")
-            # Adjust selectors as needed for the specific site
             try:
-                await page.fill('input[name="username"], input[type="text"], input[type="email"]', username)
-                await page.fill('input[name="password"], input[type="password"]', password)
-                await page.click('button[type="submit"], input[type="submit"]')
+                # The login form is inside an iframe from chibipass.com
+                login_frame = page.frame_locator('iframe[src*="chibipass.com"]')
+
+                # Username field: input[name="username"] (or check if it's type="text")
+                # We use a selector that targets name="username" as requested, with fallbacks for name="email" or type="text"
+                # We filter for visibility to ensure we don't pick hidden fields from other forms (like registration)
+                username_field = login_frame.locator('input[name="username"], input[name="email"], input[type="text"]').filter(visible=True)
+                await username_field.first.fill(username)
+
+                # Password field: input[name="password"]
+                await login_frame.locator('input[name="password"]').filter(visible=True).first.fill(password)
+
+                # Submit: button[type="submit"]
+                # We click the visible submit button
+                await login_frame.locator('button[type="submit"]').filter(visible=True).first.click()
+
                 # Wait for navigation or a specific element that confirms login
                 await page.wait_for_load_state("networkidle")
+                logger.info("Login attempt submitted.")
             except Exception as e:
                 logger.error("Automated login failed", error=str(e))
         else:
@@ -51,7 +64,9 @@ async def ensure_authenticated():
             await asyncio.sleep(2)
 
         # Save the state
-        os.makedirs(os.path.dirname(storage_state_path), exist_ok=True)
+        dir_name = os.path.dirname(storage_state_path)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
         await context.storage_state(path=storage_state_path)
         logger.info("Storage state saved successfully.", path=storage_state_path)
 

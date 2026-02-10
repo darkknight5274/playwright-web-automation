@@ -10,7 +10,7 @@ from utils.state import state_manager
 from utils.logger import logger
 from utils.session_manager import AsyncSessionManager
 from activities.registry import ActivityRegistry
-from utils.auth import ensure_authenticated
+from utils.session import ensure_authenticated
 from utils.api import app
 
 async def execute_activity(domain_name: str, domain_cfg: dict, activity_path: str, page: Page):

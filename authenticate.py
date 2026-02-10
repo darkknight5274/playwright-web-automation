@@ -1,5 +1,5 @@
 import asyncio
-from utils.auth import ensure_authenticated
+from utils.session import ensure_authenticated
 from utils.logger import logger
 
 async def main():

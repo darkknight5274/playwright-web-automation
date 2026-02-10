@@ -21,4 +21,4 @@ global_settings:
     - "/home"
     - "/battle"
   storage_state_path: "storage_state.json"
-  login_url: "https://example.com/login"
+  login_url: "https://mangarpg.com/login"
