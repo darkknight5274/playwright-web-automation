@@ -16,10 +16,30 @@ async def ensure_authenticated():
     storage_state_path = config["global_settings"]["storage_state_path"]
 
     if os.path.exists(storage_state_path):
-        logger.info("Storage state found, skipping login.", path=storage_state_path)
-        return True
+        logger.info("Storage state found, validating session.", path=storage_state_path)
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=config["browser"]["headless"])
+            context = await browser.new_context(storage_state=storage_state_path)
+            page = await context.new_page()
+            try:
+                # Test navigation to verify session
+                await page.goto(config["global_settings"]["login_url"], wait_until='networkidle', timeout=30000)
+                # If we land on about:blank or the authenticated element is missing, session is invalid
+                if page.url == "about:blank" or not await page.locator("//div[@title='DarkKnight']").is_visible(timeout=5000):
+                    logger.warning("Session invalid or landed on about:blank, deleting storage state.")
+                    os.remove(storage_state_path)
+                else:
+                    logger.info("Session valid.")
+                    await browser.close()
+                    return True
+            except Exception as e:
+                logger.warning("Session validation failed, deleting storage state.", error=str(e))
+                if os.path.exists(storage_state_path):
+                    os.remove(storage_state_path)
+            finally:
+                await browser.close()
 
-    logger.info("Storage state not found, initiating login.", path=storage_state_path)
+    logger.info("Storage state not found or invalid, initiating login.", path=storage_state_path)
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=config["browser"]["headless"])

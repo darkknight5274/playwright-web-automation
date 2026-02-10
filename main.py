@@ -59,6 +59,20 @@ async def run_domain_worker(domain_cfg: dict, global_cfg: dict):
             session = AsyncSessionManager()
             page = await session.start()
 
+            # Explicit Navigation Template
+            logger.info("Explicit initial navigation", domain=domain_name, url=domain_cfg["url"])
+            try:
+                await page.goto(domain_cfg["url"], wait_until='networkidle', timeout=30000)
+                if page.url == "about:blank":
+                    logger.error("Worker landed on about:blank. Deleting storage state to force re-login.", domain=domain_name)
+                    storage_state_path = global_cfg.get("global_settings", {}).get("storage_state_path", "storage_state.json")
+                    if os.path.exists(storage_state_path):
+                        os.remove(storage_state_path)
+                    raise Exception("Landed on about:blank")
+            except Exception as e:
+                logger.error("Initial navigation failed", domain=domain_name, error=str(e))
+                raise e
+
             try:
                 while True:
                     # Check SharedState for ad-hoc requests

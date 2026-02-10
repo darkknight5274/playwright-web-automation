@@ -37,6 +37,8 @@ class AsyncSessionManager:
         return page
 
     async def stop(self):
+        if self.context:
+            await self.context.close()
         if self.browser:
             await self.browser.close()
         if self.playwright:
