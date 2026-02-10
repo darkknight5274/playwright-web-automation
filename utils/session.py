@@ -29,70 +29,69 @@ async def ensure_authenticated():
         if config["performance"]["block_images"]:
             await page.route("**/*", block_images)
 
-        # Task 1: The Login Sequence
+        # 1. Initial Navigation
         login_url = config["global_settings"]["login_url"]
         logger.info("Navigating to login URL", url=login_url)
         await page.goto(login_url)
 
-        # Clear Popup: Wait for #popup_confirm and click it if it appears.
+        # 2. Popup Clearing: Attempt to click page.locator("#popup_confirm") with a short timeout.
         try:
-            logger.info("Checking for popup (#popup_confirm)...")
-            # Wait for the selector to be present and visible
-            popup_confirm = page.locator("#popup_confirm")
-            if await popup_confirm.count() > 0:
-                # Give it a small amount of time to become visible if it's animating
-                await popup_confirm.wait_for(state="visible", timeout=5000)
-                logger.info("Popup detected, clicking #popup_confirm.")
-                await popup_confirm.click()
-                # Wait for it to be hidden
-                await popup_confirm.wait_for(state="hidden", timeout=5000)
-                logger.info("Popup cleared.")
-            else:
-                logger.info("No #popup_confirm element found.")
-        except Exception as e:
-            logger.debug("Popup handling skipped or failed", error=str(e))
-
-        # Trigger Login: Click the login button: //div[@class='intro_btn_wrap']//a[@title='Login'].
-        logger.info("Triggering login frame.")
-        try:
-            # We use force=True as a fallback in case some other popup part is still blocking
-            await page.locator("//div[@class='intro_btn_wrap']//a[@title='Login']").click(timeout=10000)
+            await page.locator("#popup_confirm").click(timeout=3000)
+            logger.info("Popup #popup_confirm cleared.")
         except Exception:
-            logger.warning("Click intercepted, attempting forced click.")
-            await page.locator("//div[@class='intro_btn_wrap']//a[@title='Login']").click(force=True)
+            pass
 
-        # Handle Iframe: Locate the iframe using the selector iframe[id*='authentication-iframe'].
-        logger.info("Waiting for authentication iframe...")
-        login_frame_locator = page.frame_locator("iframe[id*='authentication-iframe']")
+        # 3. Open Auth Modal: await page.get_by_role("link", name="Login").click()
+        logger.info("Opening auth modal.")
+        try:
+            # We use force=True because we've seen it's often blocked by a transparent overlay
+            await page.get_by_role("link", name="Login").click(force=True, timeout=10000)
+            logger.info("Clicked Login link.")
+        except Exception as e:
+            logger.error("Failed to click Login link", error=str(e))
+            await browser.close()
+            return False
 
-        # Inner Frame Actions:
-        # Click .login-with-email.
-        logger.info("Selecting email login in iframe.")
-        await login_frame_locator.locator(".login-with-email").click()
+        # 4. Frame Interaction
+        # Define the frame using frame_locator for robustness
+        auth_frame = page.frame_locator("#authentication-iframe")
 
-        # Fill credentials
+        # Crucial Step: Check if the 'Login with Email' button exists and click it.
+        try:
+            email_login_btn = auth_frame.get_by_role("button", name="Login with Email")
+            if await email_login_btn.is_visible(timeout=5000):
+                logger.info("Clicking 'Login with Email' button inside frame.")
+                await email_login_btn.click()
+        except Exception:
+            logger.debug("'Login with Email' button not found or already on email form.")
+
+        # 5. Fill Credentials
         username = os.getenv("GAME_USERNAME")
         password = os.getenv("GAME_PASSWORD")
 
         if username and password:
             logger.info("Filling credentials.")
-            await login_frame_locator.locator("#auth-email").fill(username)
-            await login_frame_locator.locator("#auth-password").fill(password)
+            try:
+                # We use fill which handles waiting for visibility
+                await auth_frame.get_by_role("textbox", name="E-mail").fill(username, timeout=10000)
+                await auth_frame.get_by_role("textbox", name="Password").fill(password, timeout=10000)
 
-            # Press 'Enter' to submit.
-            await login_frame_locator.locator("#auth-password").press("Enter")
-            logger.info("Login submitted.")
+                # 6. Submit: await auth_frame.get_by_role("button", name="Play Now").click()
+                logger.info("Submitting login form.")
+                await auth_frame.get_by_role("button", name="Play Now").click(force=True)
+                logger.info("Login form submitted.")
+            except Exception as e:
+                logger.error("Failed to fill or submit login form", error=str(e))
         else:
-            logger.warning("No credentials found in environment.")
+            logger.warning("GAME_USERNAME or GAME_PASSWORD not set.")
 
-        # Task 2: State Persistence
-        logger.info("Verifying login status (waiting for DarkKnight element).")
+        # 7. Persistence: Wait for the //div[@title='DarkKnight'] element to appear.
+        logger.info("Verifying login persistence.")
         try:
-            # Wait for the post-login indicator
             await page.wait_for_selector("//div[@title='DarkKnight']", timeout=30000)
-            logger.info("Login verified successfully.")
-        except Exception as e:
-            logger.error("Login verification failed or timed out", error=str(e))
+            logger.info("Login verified: DarkKnight element found.")
+        except Exception:
+            logger.info("Login verification element not found. Checking URL.", url=page.url)
 
         # Save the session to storage_state.json.
         dir_name = os.path.dirname(storage_state_path)

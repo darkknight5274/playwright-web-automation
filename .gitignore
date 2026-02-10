@@ -209,3 +209,4 @@ __marimo__/
 # configuration files for various tools
 config/settinngs.yaml
 .env
+storage_state.json
