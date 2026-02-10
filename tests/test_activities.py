@@ -3,11 +3,23 @@ from unittest.mock import MagicMock, patch
 from activities.runner import run_activity
 from activities.impl.home import HomeActivity
 from activities.impl.battle import BattleActivity
+from activities.impl.training import TrainingActivity
+
+@pytest.mark.asyncio
+async def test_run_activity_training_enabled():
+    page = MagicMock()
+    page.url = "https://www.mangarpg.com/training"
+
+    from unittest.mock import AsyncMock
+    mock_execute = AsyncMock()
+    with patch.object(TrainingActivity, 'execute', mock_execute):
+        await run_activity(page)
+        mock_execute.assert_called_once_with(page)
 
 @pytest.mark.asyncio
 async def test_run_activity_home_enabled():
     page = MagicMock()
-    page.url = "https://game-v1.com/home"
+    page.url = "https://www.mangarpg.com/home"
 
     with patch.object(HomeActivity, 'execute', new_callable=MagicMock) as mock_execute:
         mock_execute.return_value = MagicMock() # Mocking the awaitable
@@ -19,20 +31,20 @@ async def test_run_activity_home_enabled():
             mock_execute.assert_called_once_with(page)
 
 @pytest.mark.asyncio
-async def test_run_activity_battle_disabled():
+async def test_run_activity_battle_enabled():
     page = MagicMock()
-    page.url = "https://game-v1.com/battle"
+    page.url = "https://www.mangarpg.com/battle"
 
     from unittest.mock import AsyncMock
     mock_execute = AsyncMock()
     with patch.object(BattleActivity, 'execute', mock_execute):
         await run_activity(page)
-        mock_execute.assert_not_called()
+        mock_execute.assert_called_once_with(page)
 
 @pytest.mark.asyncio
 async def test_run_activity_game_v2_battle_enabled():
     page = MagicMock()
-    page.url = "https://game-v2.com/battle"
+    page.url = "https://www.comicrpg.com/battle"
 
     from unittest.mock import AsyncMock
     mock_execute = AsyncMock()
@@ -43,7 +55,7 @@ async def test_run_activity_game_v2_battle_enabled():
 @pytest.mark.asyncio
 async def test_run_activity_unmapped_path():
     page = MagicMock()
-    page.url = "https://game-v1.com/unknown"
+    page.url = "https://www.mangarpg.com/unknown"
 
     # Should not crash, just log debug
     await run_activity(page)

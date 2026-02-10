@@ -50,7 +50,8 @@ async def run_domain_worker(domain_cfg: dict, global_cfg: dict):
     """
     domain_name = domain_cfg["name"]
     check_interval = global_cfg.get("global_settings", {}).get("check_interval_seconds", 60)
-    activity_order = global_cfg.get("global_settings", {}).get("activity_order", [])
+    # Prefer domain-specific activity order, fallback to global
+    activity_order = domain_cfg.get("activity_order") or global_cfg.get("global_settings", {}).get("activity_order", [])
 
     while True:
         try:
