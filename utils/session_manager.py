@@ -22,11 +22,15 @@ class AsyncSessionManager:
         )
 
         # Load storage state if it exists
-        storage_state = self.config["global_settings"]["storage_state_path"]
+        storage_state_path = self.config["global_settings"]["storage_state_path"]
         import os
-        if os.path.exists(storage_state):
-            self.context = await self.browser.new_context(storage_state=storage_state)
-        else:
+        try:
+            if os.path.exists(storage_state_path):
+                self.context = await self.browser.new_context(storage_state=storage_state_path)
+            else:
+                self.context = await self.browser.new_context()
+        except Exception:
+            # If storage_state.json is invalid or corrupted, fallback to standard context
             self.context = await self.browser.new_context()
 
         page = await self.context.new_page()

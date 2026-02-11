@@ -2,7 +2,6 @@ from activities.base import BaseActivity
 from activities.registry import ActivityRegistry
 from playwright.async_api import Page
 import structlog
-import os
 
 logger = structlog.get_logger()
 
