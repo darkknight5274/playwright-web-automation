@@ -19,8 +19,41 @@ class BattleActivity(BaseActivity):
             base_url = page.url.split("?")[0]
             await page.goto(f"{base_url}?id_opponent=1")
 
-        await page.get_by_role("button", name="Fight! x1 1").click()
-        await HumanUtils.random_sleep()
-        await page.get_by_role("button", name="OK").click()
-        await HumanUtils.random_sleep()
+        # Guard Logic: Check energy
+        energy_locator = page.locator("//div[@type='fight']//span[@energy]")
+        try:
+            await energy_locator.wait_for(state="visible", timeout=5000)
+            energy_text = await energy_locator.get_attribute("energy") or await energy_locator.inner_text()
+            energy = int(energy_text.strip())
+        except Exception:
+            logger.warning("Could not determine energy, assuming 0")
+            energy = 0
+
+        if energy == 0:
+            logger.info("No Energy Available")
+            return
+
+        # Execution
+        fight_btn = page.get_by_role("button", name="Fight! x1 1")
+        await HumanUtils.human_click(page, fight_btn)
+        await HumanUtils.random_jitter()
+
+        # Try to click Skip button if it appears within 3 seconds
+        skip_btn = page.get_by_role("button", name="Skip")
+        try:
+            await skip_btn.wait_for(state="visible", timeout=3000)
+            await HumanUtils.human_click(page, skip_btn)
+            await HumanUtils.random_jitter()
+        except Exception:
+            logger.info("Skip button did not appear")
+
+        # Click OK on reward popup
+        ok_btn = page.get_by_role("button", name="OK")
+        try:
+            await ok_btn.wait_for(state="visible", timeout=5000)
+            await HumanUtils.human_click(page, ok_btn)
+            await HumanUtils.random_jitter()
+        except Exception:
+            logger.warning("OK button not found or not visible")
+
         logger.info("Battle activity completed")
