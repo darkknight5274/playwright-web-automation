@@ -14,6 +14,7 @@ class SeasonActivity(BaseActivity):
 
     async def execute(self, page: Page):
         logger.info("Season activity started", url=page.url)
+        await page.wait_for_timeout(2000)
 
         # Guard Logic: Navigate and check kisses
         kisses_locator = page.locator(".energy_counter_amount span")
