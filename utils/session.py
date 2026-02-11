@@ -123,3 +123,50 @@ async def ensure_authenticated():
 
         await browser.close()
     return True
+
+async def login(page, domain_url):
+    """
+    Performs login for a specific domain.
+    """
+    logger.info("Starting login process", domain_url=domain_url)
+    try:
+        await page.goto(domain_url.rstrip("/") + "/home.html", wait_until='domcontentloaded')
+
+        # Pre-Check: immediately check if the session is already active
+        try:
+            if await page.locator("//div[@title='DarkKnight']").is_visible(timeout=5000):
+                logger.info("Already logged in. Skipping auth flow.")
+                return True
+        except Exception:
+            pass
+
+        await page.get_by_role("link", name="Login").click()
+
+        frame_locator = page.locator("#authentication-iframe")
+        frame = frame_locator.content_frame
+
+        # Wait Strategy
+        await frame.get_by_role("textbox", name="E-mail").wait_for(state="visible", timeout=10000)
+
+        await frame.get_by_role("textbox", name="E-mail").click()
+        await frame.get_by_role("textbox", name="E-mail").fill(os.getenv('GAME_USERNAME'))
+        await frame.get_by_role("textbox", name="Password").fill(os.getenv('GAME_PASSWORD'))
+        await frame.get_by_role("button", name="Play Now").click()
+
+        # Verification
+        try:
+            await page.wait_for_selector("//div[@title='DarkKnight']", timeout=15000)
+            logger.info("Login successful", domain_url=domain_url)
+
+            # Save storage state after successful login
+            config = load_config()
+            storage_state_path = config["global_settings"]["storage_state_path"]
+            await page.context.storage_state(path=storage_state_path)
+
+            return True
+        except Exception:
+            logger.error("Login verification failed", domain_url=domain_url)
+            return False
+    except Exception as e:
+        logger.error("Login process failed", domain_url=domain_url, error=str(e))
+        return False

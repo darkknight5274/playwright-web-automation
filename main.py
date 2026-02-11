@@ -10,8 +10,9 @@ from utils.state import state_manager
 from utils.logger import logger
 from utils.session_manager import AsyncSessionManager
 from activities.registry import ActivityRegistry
-from utils.session import ensure_authenticated
+from utils.session import ensure_authenticated, login
 from utils.api import app
+import os
 
 async def execute_activity(domain_name: str, domain_cfg: dict, activity_path: str, page: Page):
     """
@@ -72,6 +73,18 @@ async def run_domain_worker(domain_cfg: dict, global_cfg: dict):
             except Exception as e:
                 logger.error("Initial navigation failed", domain=domain_name, error=str(e))
                 raise e
+
+            # Authentication Gating
+            status = await state_manager.get_domain_status(domain_name)
+            if not status or not status.is_authenticated:
+                logger.info("Domain not authenticated, attempting login", domain=domain_name)
+                is_logged_in = await login(page, domain_cfg["url"])
+                if is_logged_in:
+                    await state_manager.update_status(domain_name, is_authenticated=True)
+                else:
+                    logger.error("Login failed, skipping loop iteration", domain=domain_name)
+                    await asyncio.sleep(check_interval)
+                    continue
 
             try:
                 while True:
