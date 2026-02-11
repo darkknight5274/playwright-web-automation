@@ -1,5 +1,6 @@
 from activities.base import BaseActivity
 from activities.registry import ActivityRegistry
+from utils.human import HumanUtils
 from playwright.async_api import Page
 import structlog
 
@@ -19,6 +20,7 @@ class CollectActivity(BaseActivity):
 
         if await page.locator("#collect_all").is_visible():
             await page.locator("#collect_all").click()
+            await HumanUtils.random_sleep()
             logger.info("Collected all items")
         else:
             logger.info("Nothing to collect")

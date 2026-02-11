@@ -163,7 +163,11 @@ async def orchestrator():
 
     # Step 1: Ensure Authentication
     try:
-        await ensure_authenticated()
+        if await ensure_authenticated():
+            # Mark all enabled domains as authenticated to prevent redundant logins
+            for domain_cfg in global_cfg.get("domains", []):
+                if domain_cfg.get("enabled", True):
+                    await state_manager.update_status(domain_cfg["name"], is_authenticated=True)
     except Exception as e:
         logger.error("Initial authentication failed", error=str(e))
         # We can still try to start workers if storage_state exists
@@ -194,6 +198,7 @@ async def orchestrator():
     except Exception as e:
         logger.error("Orchestrator encountered a critical error", error=str(e))
     finally:
+        await AsyncSessionManager.shutdown()
         logger.info("Orchestrator shut down complete.")
 
 if __name__ == "__main__":
