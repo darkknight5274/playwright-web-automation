@@ -22,7 +22,7 @@ class BattleActivity(BaseActivity):
         # Guard Logic: Check energy
         try:
             energy_text = await page.locator('#fight_energy_bar span[energy=""]').inner_text()
-            energy = int(energy_text.strip())
+            energy = int(energy_text.replace(',', '').strip())
         except Exception:
             logger.warning("Could not determine energy, assuming 0")
             energy = 0
