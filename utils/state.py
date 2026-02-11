@@ -10,6 +10,7 @@ class DomainStatus:
     last_run_time: Optional[datetime] = None
     status: str = "Idle"  # Idle, Busy, Error
     is_adhoc_pending: bool = False
+    is_authenticated: bool = False
 
 class SharedState:
     _instance = None

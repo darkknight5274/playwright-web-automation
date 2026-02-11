@@ -2,19 +2,19 @@ domains:
   - name: "manga"
     url: "https://www.mangarpg.com"
     enabled: true
-    activity_order: ["/training"]
+    activity_order: ["/collect", "/troll-pre-battle.html", "/season-arena.html", "/leagues.html"]
   - name: "comic"
     url: "https://www.comicrpg.com"
     enabled: true
-    activity_order: ["/training"]
+    activity_order: ["/collect", "/troll-pre-battle.html", "/season-arena.html", "/leagues.html"]
   - name: "stars"
     url: "https://www.starsrpg.com"
     enabled: true
-    activity_order: ["/training"]
+    activity_order: ["/collect", "/troll-pre-battle.html", "/season-arena.html", "/leagues.html"]
   - name: "hero"
     url: "https://www.herorpg.com"
     enabled: true
-    activity_order: ["/training"]
+    activity_order: ["/collect", "/troll-pre-battle.html", "/season-arena.html", "/leagues.html"]
 
 browser:
   headless: true
@@ -25,7 +25,9 @@ performance:
 global_settings:
   check_interval_seconds: 30
   activity_order:
-    - "/home"
-    - "/battle"
+    - "/collect"
+    - "/troll-pre-battle.html"
+    - "/season-arena.html"
+    - "/leagues.html"
   storage_state_path: "storage_state.json"
   login_url: "https://www.mangarpg.com/home.html"
