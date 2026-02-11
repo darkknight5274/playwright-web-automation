@@ -20,17 +20,15 @@ class BattleActivity(BaseActivity):
             await page.goto(f"{base_url}?id_opponent=1")
 
         # Guard Logic: Check energy
-        energy_locator = page.locator("//div[@type='fight']//span[@energy]")
         try:
-            await energy_locator.wait_for(state="visible", timeout=5000)
-            energy_text = await energy_locator.get_attribute("energy") or await energy_locator.inner_text()
+            energy_text = await page.locator('#fight_energy_bar span[energy=""]').inner_text()
             energy = int(energy_text.strip())
         except Exception:
             logger.warning("Could not determine energy, assuming 0")
             energy = 0
 
-        if energy == 0:
-            logger.info("No Energy Available")
+        if energy <= 0:
+            logger.info("No Energy Available", energy=energy)
             return
 
         # Execution
