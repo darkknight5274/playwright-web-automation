@@ -3,6 +3,7 @@ from activities.registry import ActivityRegistry
 from utils.human import HumanUtils
 from playwright.async_api import Page
 import structlog
+import urllib.parse
 
 logger = structlog.get_logger()
 
@@ -14,6 +15,7 @@ class SeasonActivity(BaseActivity):
 
     async def execute(self, page: Page):
         logger.info("Season activity started", url=page.url)
+        await page.wait_for_load_state('networkidle')
         await page.wait_for_timeout(2000)
 
         # Guard Logic: Navigate and check kisses
@@ -23,6 +25,11 @@ class SeasonActivity(BaseActivity):
             kisses_text = await kisses_locator.inner_text()
             kisses = int(kisses_text.strip())
         except Exception:
+            domain = urllib.parse.urlparse(page.url).netloc
+            html_content = await page.content()
+            with open(f"debug_Season{domain}.html", "w", encoding='utf-8') as f:
+                f.write(html_content)
+            logger.info(f"Saved page source to debugSeason_{domain}.html for investigation.")
             logger.warning("Could not determine kisses, assuming 0")
             kisses = 0
 

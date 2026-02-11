@@ -145,19 +145,21 @@ async def orchestrator():
 
     try:
         while True:
-            logger.info("Starting global activity iteration")
+            try:
+                logger.info("Starting global activity iteration")
 
-            # Run Activity Sequence for all domains in parallel
-            worker_tasks = [run_domain_sequence(d, global_cfg) for d in enabled_domains]
-            await asyncio.gather(*worker_tasks)
+                # Run Activity Sequence for all domains in parallel
+                worker_tasks = [run_domain_sequence(d, global_cfg) for d in enabled_domains]
+                await asyncio.gather(*worker_tasks)
 
-            logger.info("All activities completed. Entering 30-minute cooldown.")
+                logger.info("All activities completed. Entering 30-minute cooldown.")
+            except Exception as e:
+                logger.error("Orchestrator encountered an error in this cycle", error=str(e))
+
             await asyncio.sleep(1800)
 
     except asyncio.CancelledError:
         logger.info("Orchestrator tasks cancelled")
-    except Exception as e:
-        logger.error("Orchestrator encountered a critical error", error=str(e))
     finally:
         api_task.cancel()
         await AsyncSessionManager.shutdown()
