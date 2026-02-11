@@ -1,3 +1,5 @@
+# Game Bot Configuration
+# Enabled domains: manga, comic, stars, hero
 domains:
   - name: "manga"
     url: "https://www.mangarpg.com"
