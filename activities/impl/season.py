@@ -19,10 +19,9 @@ class SeasonActivity(BaseActivity):
         await page.wait_for_timeout(2000)
 
         # Guard Logic: Navigate and check kisses
-        kisses_locator = page.locator(".energy_counter_amount span[rel='count_txt']").first
         try:
-            await kisses_locator.wait_for(state="visible", timeout=5000)
-            kisses_text = await kisses_locator.inner_text()
+            kiss_bar = page.locator('div.energy_counter_bar').filter(has=page.locator('.hudKiss_mix_icn'))
+            kisses_text = await kiss_bar.locator('span[energy=""]').inner_text()
             kisses = int(kisses_text.strip())
         except Exception:
             domain = urllib.parse.urlparse(page.url).netloc
@@ -33,8 +32,8 @@ class SeasonActivity(BaseActivity):
             logger.warning("Could not determine kisses, assuming 0")
             kisses = 0
 
-        if kisses == 0:
-            logger.info("No Kisses Available")
+        if kisses <= 0:
+            logger.info("No Kisses Available", kisses=kisses)
             return
 
         # Smart Targeting

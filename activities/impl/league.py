@@ -19,11 +19,9 @@ class LeagueActivity(BaseActivity):
         await page.wait_for_timeout(2000)
 
         # Guard Logic
-        energy_locator = page.locator("#leagues .challenge_points span[rel='count_txt']").first
         try:
-            await energy_locator.wait_for(state="visible", timeout=5000)
-            energy_text = await energy_locator.inner_text()
-            energy = int(energy_text.strip())
+            points_text = await page.locator('.challenge_points span[energy=""]').inner_text()
+            points = int(points_text.strip())
         except Exception:
             domain = urllib.parse.urlparse(page.url).netloc
             html_content = await page.content()
@@ -31,10 +29,10 @@ class LeagueActivity(BaseActivity):
                 f.write(html_content)
             logger.info(f"Saved page source to debugLeague_{domain}.html for investigation.")
             logger.warning("Could not determine challenge points, assuming 0")
-            energy = 0
+            points = 0
 
-        if energy < 3:
-            logger.info("Not enough Challenge Points (need 3)", current=energy)
+        if points < 3:
+            logger.info("Not enough Challenge Points (need 3 for x3 attack)", current=points)
             return
 
         # Smart Targeting
