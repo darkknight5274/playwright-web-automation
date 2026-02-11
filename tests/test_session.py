@@ -1,11 +1,12 @@
 import pytest
-from utils.session import ensure_authenticated
+from utils.session import ensure_authenticated, login
 from utils.session_manager import AsyncSessionManager
 import os
 
 @pytest.mark.asyncio
 async def test_auth_import():
     assert ensure_authenticated is not None
+    assert login is not None
 
 @pytest.mark.asyncio
 async def test_async_session_manager():

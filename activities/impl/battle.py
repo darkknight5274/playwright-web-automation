@@ -9,7 +9,15 @@ logger = structlog.get_logger()
 class BattleActivity(BaseActivity):
     @property
     def path(self) -> str:
-        return "/battle"
+        return "/troll-pre-battle.html"
 
     async def execute(self, page: Page):
-        logger.info("Executing Battle Activity", url=page.url)
+        logger.info("Battle activity started", url=page.url)
+        # Ensure we have the query param if not present
+        if "?id_opponent=1" not in page.url:
+            base_url = page.url.split("?")[0]
+            await page.goto(f"{base_url}?id_opponent=1")
+
+        await page.get_by_role("button", name="Fight! x1 1").click()
+        await page.get_by_role("button", name="OK").click()
+        logger.info("Battle activity completed")

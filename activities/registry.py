@@ -32,3 +32,6 @@ class ActivityRegistry:
 import activities.impl.home
 import activities.impl.battle
 import activities.impl.training
+import activities.impl.season
+import activities.impl.collect
+import activities.impl.league
