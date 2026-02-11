@@ -14,6 +14,7 @@ from utils.session import ensure_authenticated, login
 from utils.human import HumanUtils
 from utils.api import app
 import os
+import time
 
 async def execute_activity(domain_name: str, domain_cfg: dict, activity_path: str, page: Page):
     """
@@ -156,7 +157,9 @@ async def orchestrator():
             except Exception as e:
                 logger.error("Orchestrator encountered an error in this cycle", error=str(e))
 
-            await asyncio.sleep(1800)
+            for i in range(1, 7):
+                await asyncio.sleep(300)
+                logger.info("Heartbeat: Orchestrator waiting...", minutes_elapsed=i*5, total_wait="30m")
 
     except asyncio.CancelledError:
         logger.info("Orchestrator tasks cancelled")
@@ -166,7 +169,12 @@ async def orchestrator():
         logger.info("Orchestrator shut down complete.")
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(orchestrator())
-    except KeyboardInterrupt:
-        pass
+    while True:
+        try:
+            asyncio.run(orchestrator())
+        except KeyboardInterrupt:
+            logger.info("Bot stopped by user")
+            break
+        except Exception as e:
+            logger.error("Master Orchestrator crashed, restarting in 10 seconds...", error=str(e))
+            time.sleep(10)

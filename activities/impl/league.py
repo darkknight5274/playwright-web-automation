@@ -19,7 +19,7 @@ class LeagueActivity(BaseActivity):
         await page.wait_for_timeout(2000)
 
         # Guard Logic
-        energy_locator = page.locator(".challenge_points .over span")
+        energy_locator = page.locator("#leagues .challenge_points span[rel='count_txt']").first
         try:
             await energy_locator.wait_for(state="visible", timeout=5000)
             energy_text = await energy_locator.inner_text()
@@ -37,10 +37,46 @@ class LeagueActivity(BaseActivity):
             logger.info("Not enough Challenge Points (need 3)", current=energy)
             return
 
-        # Execution
-        go_pre_battle_btn = page.locator(".go_pre_battle").first
-        await HumanUtils.human_click(page, go_pre_battle_btn)
-        await HumanUtils.random_jitter()
+        # Smart Targeting
+        try:
+            power_locators = page.locator("div.data-column[column='power']")
+            count = await power_locators.count()
+
+            if count == 0:
+                logger.warning("No opponents found in league table")
+                return
+
+            min_power = float('inf')
+            best_index = -1
+
+            for i in range(count):
+                power_text = await power_locators.nth(i).inner_text()
+                try:
+                    power = int(''.join(filter(str.isdigit, power_text)))
+                    logger.info("Checking league opponent", index=i, power=power)
+                    if power < min_power:
+                        min_power = power
+                        best_index = i
+                except ValueError:
+                    continue
+
+            if best_index != -1:
+                logger.info("Targeting lowest power opponent", power=min_power, index=best_index)
+                target_power_locator = power_locators.nth(best_index)
+                target_row = target_power_locator.locator("xpath=./ancestor::*[contains(@class, 'row') or contains(@class, 'container') or contains(@class, 'opponent')][1]")
+                go_btn = target_row.locator(".go_pre_battle")
+
+                if await go_btn.is_visible():
+                    await HumanUtils.human_click(page, go_btn)
+                else:
+                    await HumanUtils.human_click(page, page.locator(".go_pre_battle").nth(best_index))
+                await HumanUtils.random_jitter()
+            else:
+                return
+        except Exception as e:
+            logger.error("Error during smart league targeting", error=str(e))
+            await HumanUtils.human_click(page, page.locator(".go_pre_battle").first)
+            await HumanUtils.random_jitter()
 
         # In the next screen, click .league-multiple-battle-button to use the 'x3' attack
         x3_battle_btn = page.locator(".league-multiple-battle-button")
