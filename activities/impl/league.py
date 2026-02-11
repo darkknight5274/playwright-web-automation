@@ -3,6 +3,7 @@ from activities.registry import ActivityRegistry
 from utils.human import HumanUtils
 from playwright.async_api import Page
 import structlog
+import urllib.parse
 
 logger = structlog.get_logger()
 
@@ -14,15 +15,21 @@ class LeagueActivity(BaseActivity):
 
     async def execute(self, page: Page):
         logger.info("League activity started", url=page.url)
+        await page.wait_for_load_state('networkidle')
         await page.wait_for_timeout(2000)
 
         # Guard Logic
-        energy_locator = page.locator("#leagues .challenge_points .over span")
+        energy_locator = page.locator(".challenge_points .over span")
         try:
             await energy_locator.wait_for(state="visible", timeout=5000)
             energy_text = await energy_locator.inner_text()
             energy = int(energy_text.strip())
         except Exception:
+            domain = urllib.parse.urlparse(page.url).netloc
+            html_content = await page.content()
+            with open(f"debug_League{domain}.html", "w", encoding='utf-8') as f:
+                f.write(html_content)
+            logger.info(f"Saved page source to debugLeague_{domain}.html for investigation.")
             logger.warning("Could not determine challenge points, assuming 0")
             energy = 0
 
