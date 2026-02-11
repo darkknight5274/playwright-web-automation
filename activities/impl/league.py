@@ -21,7 +21,7 @@ class LeagueActivity(BaseActivity):
         # Guard Logic
         try:
             points_text = await page.locator('.challenge_points span[energy=""]').inner_text()
-            points = int(points_text.strip())
+            points = int(points_text.replace(',', '').strip())
         except Exception:
             domain = urllib.parse.urlparse(page.url).netloc
             html_content = await page.content()
@@ -50,7 +50,7 @@ class LeagueActivity(BaseActivity):
             for i in range(count):
                 power_text = await power_locators.nth(i).inner_text()
                 try:
-                    power = int(''.join(filter(str.isdigit, power_text)))
+                    power = int(power_text.replace(',', '').strip())
                     logger.info("Checking league opponent", index=i, power=power)
                     if power < min_power:
                         min_power = power

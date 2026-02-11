@@ -22,7 +22,7 @@ class SeasonActivity(BaseActivity):
         try:
             kiss_bar = page.locator('div.energy_counter_bar').filter(has=page.locator('.hudKiss_mix_icn'))
             kisses_text = await kiss_bar.locator('span[energy=""]').inner_text()
-            kisses = int(kisses_text.strip())
+            kisses = int(kisses_text.replace(',', '').strip())
         except Exception:
             domain = urllib.parse.urlparse(page.url).netloc
             html_content = await page.content()
@@ -40,12 +40,12 @@ class SeasonActivity(BaseActivity):
         try:
             # Get my hero stats
             my_stats_locator = page.locator("[data-hero-carac='damage']").filter(has_not=page.locator(".season_arena_opponent_container")).first
-            my_damage = int(await my_stats_locator.inner_text())
+            my_damage = int((await my_stats_locator.inner_text()).replace(',', '').strip())
 
             # Find my level - usually nearby damage or in a specific player info div
             # Trying to find it via a common class or nearby text
             my_level_locator = page.locator(".player_level, .hero_level, .level").filter(has_not=page.locator(".season_arena_opponent_container")).first
-            my_level = int(await my_level_locator.inner_text())
+            my_level = int((await my_level_locator.inner_text()).replace(',', '').strip())
 
             logger.info("My Hero Stats", damage=my_damage, level=my_level)
 
@@ -53,10 +53,10 @@ class SeasonActivity(BaseActivity):
             target_found = False
             for opponent in opponents:
                 opp_damage_text = await opponent.locator("[data-hero-carac='damage']").inner_text()
-                opp_damage = int(opp_damage_text.strip())
+                opp_damage = int(opp_damage_text.replace(',', '').strip())
 
                 opp_level_text = await opponent.locator(".level").inner_text()
-                opp_level = int(opp_level_text.strip())
+                opp_level = int(opp_level_text.replace(',', '').strip())
 
                 logger.info("Checking opponent", damage=opp_damage, level=opp_level)
 
