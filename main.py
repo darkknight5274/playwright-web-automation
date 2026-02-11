@@ -51,10 +51,13 @@ async def run_domain_worker(domain_cfg: dict, global_cfg: dict):
     """
     domain_name = domain_cfg["name"]
     check_interval = global_cfg.get("global_settings", {}).get("check_interval_seconds", 60)
-    # Prefer domain-specific activity order, fallback to global
-    activity_order = domain_cfg.get("activity_order") or global_cfg.get("global_settings", {}).get("activity_order", [])
-
     while True:
+        # Task 3: Ensure the worker executes the specific activity sequence
+        # Order: Collect_Money (/collect), Battle (/troll-pre-battle.html), Season (/season-arena.html), League (/leagues.html)
+        activity_order = domain_cfg.get("activity_order") or global_cfg.get("global_settings", {}).get("activity_order", [])
+        if not activity_order:
+            activity_order = ["/collect", "/troll-pre-battle.html", "/season-arena.html", "/leagues.html"]
+
         try:
             logger.info("Starting worker session", domain=domain_name)
             session = AsyncSessionManager()
@@ -77,14 +80,23 @@ async def run_domain_worker(domain_cfg: dict, global_cfg: dict):
             # Authentication Gating
             status = await state_manager.get_domain_status(domain_name)
             if not status or not status.is_authenticated:
-                logger.info("Domain not authenticated, attempting login", domain=domain_name)
-                is_logged_in = await login(page, domain_cfg["url"])
-                if is_logged_in:
+                # Navigate to home first to check for existing session
+                home_url = f"{domain_cfg['url'].rstrip('/')}/home.html"
+                logger.info("Checking for active session before login", domain=domain_name, url=home_url)
+                await page.goto(home_url, wait_until='networkidle')
+
+                if await page.locator("//div[@title='DarkKnight']").is_visible(timeout=5000):
+                    logger.info(f"Worker for {domain_name} detected active session. Marking authenticated.")
                     await state_manager.update_status(domain_name, is_authenticated=True)
                 else:
-                    logger.error("Login failed, skipping loop iteration", domain=domain_name)
-                    await asyncio.sleep(check_interval)
-                    continue
+                    logger.info("Domain not authenticated, attempting login", domain=domain_name)
+                    is_logged_in = await login(page, domain_cfg["url"])
+                    if is_logged_in:
+                        await state_manager.update_status(domain_name, is_authenticated=True)
+                    else:
+                        logger.error("Login failed, skipping loop iteration", domain=domain_name)
+                        await asyncio.sleep(check_interval)
+                        continue
 
             try:
                 while True:
@@ -102,7 +114,7 @@ async def run_domain_worker(domain_cfg: dict, global_cfg: dict):
                         await state_manager.clear_adhoc_signal()
                     else:
                         # Priority 2: Regular activity order
-                        logger.info("No ad-hoc pending, running regular activities", domain=domain_name)
+                        logger.info("Executing activity sequence", domain=domain_name, order=activity_order)
                         for activity_path in activity_order:
                             if activity_path in domain_cfg.get("disabled_activities", []):
                                 logger.info("Activity disabled for domain", domain=domain_name, activity=activity_path)

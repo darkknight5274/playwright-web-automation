@@ -130,16 +130,16 @@ async def login(page, domain_url):
     """
     logger.info("Starting login process", domain_url=domain_url)
     try:
-        await page.goto(domain_url.rstrip("/") + "/home.html", wait_until='domcontentloaded')
+        # Pre-flight check: strictly check if the session is already active
+        # We navigate to home.html if not already there
+        if not page.url.endswith("/home.html"):
+            await page.goto(domain_url.rstrip("/") + "/home.html", wait_until='domcontentloaded')
 
-        # Pre-Check: immediately check if the session is already active
-        try:
-            if await page.locator("//div[@title='DarkKnight']").is_visible(timeout=5000):
-                logger.info("Already logged in. Skipping auth flow.")
-                return True
-        except Exception:
-            pass
+        if await page.locator("//div[@title='DarkKnight']").is_visible(timeout=5000):
+            logger.info("Already logged in (pre-flight). Skipping auth flow.")
+            return True
 
+        logger.info("Session not detected, clicking Login link.")
         await page.get_by_role("link", name="Login").click()
 
         frame_locator = page.locator("#authentication-iframe")
