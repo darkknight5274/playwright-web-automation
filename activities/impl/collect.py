@@ -18,9 +18,10 @@ class CollectActivity(BaseActivity):
         domain = "/".join(page.url.split("/")[:3])
         await page.goto(f"{domain}/home.html")
 
-        if await page.locator("#collect_all").is_visible():
-            await page.locator("#collect_all").click()
-            await HumanUtils.random_sleep()
+        collect_btn = page.locator("#collect_all")
+        if await collect_btn.is_visible():
+            await HumanUtils.human_click(page, collect_btn)
+            await HumanUtils.random_jitter()
             logger.info("Collected all items")
         else:
             logger.info("Nothing to collect")

@@ -11,6 +11,7 @@ from utils.logger import logger
 from utils.session_manager import AsyncSessionManager
 from activities.registry import ActivityRegistry
 from utils.session import ensure_authenticated, login
+from utils.human import HumanUtils
 from utils.api import app
 import os
 
@@ -35,7 +36,9 @@ async def execute_activity(domain_name: str, domain_cfg: dict, activity_path: st
 
     try:
         logger.info("Executing activity", domain=domain_name, activity=activity_path, url=full_url)
-        await page.goto(full_url)
+        # Note: /collect is handled specially in its implementation
+        if activity.path != "/collect":
+            await page.goto(full_url, wait_until='networkidle')
         await activity.execute(page)
         logger.info("Activity completed successfully", domain=domain_name, activity=activity_path)
     except Exception as e:
@@ -45,105 +48,71 @@ async def execute_activity(domain_name: str, domain_cfg: dict, activity_path: st
         # Update state back to Idle
         await state_manager.update_status(domain_name, status="Idle")
 
-async def run_domain_worker(domain_cfg: dict, global_cfg: dict):
+async def run_domain_sequence(domain_cfg: dict, global_cfg: dict):
     """
-    Main worker loop for a specific domain.
+    Runs a single activity sequence for a specific domain.
     """
     domain_name = domain_cfg["name"]
-    check_interval = global_cfg.get("global_settings", {}).get("check_interval_seconds", 60)
-    while True:
-        # Task 3: Ensure the worker executes the specific activity sequence
-        # Order: Collect_Money (/collect), Battle (/troll-pre-battle.html), Season (/season-arena.html), League (/leagues.html)
-        activity_order = domain_cfg.get("activity_order") or global_cfg.get("global_settings", {}).get("activity_order", [])
-        if not activity_order:
-            activity_order = ["/collect", "/troll-pre-battle.html", "/season-arena.html", "/leagues.html"]
+    activity_order = domain_cfg.get("activity_order") or global_cfg.get("global_settings", {}).get("activity_order", [])
+    if not activity_order:
+        activity_order = ["/collect", "/troll-pre-battle.html", "/season-arena.html", "/leagues.html"]
 
+    try:
+        logger.info("Starting domain sequence", domain=domain_name)
+        session = AsyncSessionManager()
+        page = await session.start()
+
+        # Navigation and Authentication check
         try:
-            logger.info("Starting worker session", domain=domain_name)
-            session = AsyncSessionManager()
-            page = await session.start()
-
-            # Explicit Navigation Template
-            logger.info("Explicit initial navigation", domain=domain_name, url=domain_cfg["url"])
-            try:
-                await page.goto(domain_cfg["url"], wait_until='networkidle', timeout=30000)
-                if page.url == "about:blank":
-                    logger.error("Worker landed on about:blank. Deleting storage state to force re-login.", domain=domain_name)
-                    storage_state_path = global_cfg.get("global_settings", {}).get("storage_state_path", "storage_state.json")
-                    if os.path.exists(storage_state_path):
-                        os.remove(storage_state_path)
-                    raise Exception("Landed on about:blank")
-            except Exception as e:
-                logger.error("Initial navigation failed", domain=domain_name, error=str(e))
-                raise e
-
-            # Authentication Gating
-            status = await state_manager.get_domain_status(domain_name)
-            if not status or not status.is_authenticated:
-                # Navigate to home first to check for existing session
-                home_url = f"{domain_cfg['url'].rstrip('/')}/home.html"
-                logger.info("Checking for active session before login", domain=domain_name, url=home_url)
-                await page.goto(home_url, wait_until='networkidle')
-
-                if await page.locator("//div[@title='DarkKnight']").is_visible(timeout=5000):
-                    logger.info(f"Worker for {domain_name} detected active session. Marking authenticated.")
-                    await state_manager.update_status(domain_name, is_authenticated=True)
-                else:
-                    logger.info("Domain not authenticated, attempting login", domain=domain_name)
-                    is_logged_in = await login(page, domain_cfg["url"])
-                    if is_logged_in:
-                        await state_manager.update_status(domain_name, is_authenticated=True)
-                    else:
-                        logger.error("Login failed, skipping loop iteration", domain=domain_name)
-                        await asyncio.sleep(check_interval)
-                        continue
-
-            try:
-                while True:
-                    # Check SharedState for ad-hoc requests
-                    status = await state_manager.get_domain_status(domain_name)
-
-                    if status and status.is_adhoc_pending:
-                        # Priority 1: Ad-hoc activity
-                        adhoc_activity = status.current_activity
-                        logger.info("Ad-hoc activity pending, executing", domain=domain_name, activity=adhoc_activity)
-                        await execute_activity(domain_name, domain_cfg, adhoc_activity, page)
-
-                        # Clear ad-hoc status for this domain
-                        await state_manager.update_status(domain_name, is_adhoc_pending=False)
-                        await state_manager.clear_adhoc_signal()
-                    else:
-                        # Priority 2: Regular activity order
-                        logger.info("Executing activity sequence", domain=domain_name, order=activity_order)
-                        for activity_path in activity_order:
-                            if activity_path in domain_cfg.get("disabled_activities", []):
-                                logger.info("Activity disabled for domain", domain=domain_name, activity=activity_path)
-                                continue
-
-                            await execute_activity(domain_name, domain_cfg, activity_path, page)
-
-                    logger.info("Worker iteration complete, sleeping", domain=domain_name, interval=check_interval)
-                    await asyncio.sleep(check_interval)
-
-            except asyncio.CancelledError:
-                logger.info("Worker cancelled, cleaning up", domain=domain_name)
-                raise
-            except Exception as e:
-                logger.error("Error in worker loop", domain=domain_name, error=str(e))
-                # Let finally block clean up session, then outer loop will restart
-                raise e
-            finally:
-                await session.stop()
-
-        except asyncio.CancelledError:
-            break
+            await page.goto(domain_cfg["url"], wait_until='networkidle', timeout=30000)
+            if page.url == "about:blank":
+                raise Exception("Landed on about:blank")
         except Exception as e:
-            logger.error("Worker failed, restarting in 60s", domain=domain_name, error=str(e))
-            await state_manager.update_status(domain_name, status="Error")
-            try:
-                await asyncio.sleep(60)
-            except asyncio.CancelledError:
-                break
+            logger.error("Initial navigation failed", domain=domain_name, error=str(e))
+            raise e
+
+        # Authentication Gating
+        home_url = f"{domain_cfg['url'].rstrip('/')}/home.html"
+        await page.goto(home_url, wait_until='networkidle')
+
+        if await page.locator("//div[@title='DarkKnight']").is_visible(timeout=5000):
+            logger.info("Active session detected", domain=domain_name)
+            await state_manager.update_status(domain_name, is_authenticated=True)
+        else:
+            logger.info("Attempting login", domain=domain_name)
+            is_logged_in = await login(page, domain_cfg["url"])
+            if is_logged_in:
+                await state_manager.update_status(domain_name, is_authenticated=True)
+            else:
+                logger.error("Login failed", domain=domain_name)
+                return
+
+        # Execute scheduled activities
+        logger.info("Executing activity sequence", domain=domain_name, order=activity_order)
+        for activity_path in activity_order:
+            if activity_path in domain_cfg.get("disabled_activities", []):
+                logger.info("Activity disabled", domain=domain_name, activity=activity_path)
+                continue
+
+            # Check for ad-hoc requests
+            status = await state_manager.get_domain_status(domain_name)
+            if status and status.is_adhoc_pending:
+                adhoc_activity = status.current_activity
+                logger.info("Ad-hoc activity pending, executing", domain=domain_name, activity=adhoc_activity)
+                await execute_activity(domain_name, domain_cfg, adhoc_activity, page)
+                await state_manager.update_status(domain_name, is_adhoc_pending=False)
+                await HumanUtils.random_jitter()
+
+            await execute_activity(domain_name, domain_cfg, activity_path, page)
+            await HumanUtils.random_jitter() # Anti-ban: sleep between activities
+
+        logger.info("Domain sequence complete", domain=domain_name)
+
+    except Exception as e:
+        logger.error("Error in domain sequence", domain=domain_name, error=str(e))
+        await state_manager.update_status(domain_name, status="Error")
+    finally:
+        await session.stop()
 
 async def run_api():
     """
@@ -158,46 +127,39 @@ async def orchestrator():
     Main entry point for the bot orchestrator.
     """
     global_cfg = load_config()
+    enabled_domains = [d for d in global_cfg.get("domains", []) if d.get("enabled", True)]
 
     logger.info("Initializing Master Orchestrator")
 
-    # Step 1: Ensure Authentication
-    try:
-        if await ensure_authenticated():
-            # Mark all enabled domains as authenticated to prevent redundant logins
-            for domain_cfg in global_cfg.get("domains", []):
-                if domain_cfg.get("enabled", True):
-                    await state_manager.update_status(domain_cfg["name"], is_authenticated=True)
-    except Exception as e:
-        logger.error("Initial authentication failed", error=str(e))
-        # We can still try to start workers if storage_state exists
+    # Start API task
+    api_task = asyncio.create_task(run_api())
 
-    # Step 2: Prepare worker tasks
-    tasks = []
-    for domain_cfg in global_cfg.get("domains", []):
-        if domain_cfg.get("enabled", True):
-            tasks.append(asyncio.create_task(run_domain_worker(domain_cfg, global_cfg)))
-
-    # Step 3: Add API task
-    tasks.append(asyncio.create_task(run_api()))
-
-    # Register signal handlers for SIGINT and SIGTERM
+    # Signal handling
+    tasks_to_cancel = [api_task]
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
-            loop.add_signal_handler(sig, lambda: [t.cancel() for t in tasks])
+            loop.add_signal_handler(sig, lambda: [t.cancel() for t in tasks_to_cancel])
         except NotImplementedError:
-            # Signal handlers not supported on all platforms (e.g. Windows)
             pass
 
-    # Step 4: Run all tasks
     try:
-        await asyncio.gather(*tasks)
+        while True:
+            logger.info("Starting global activity iteration")
+
+            # Run Activity Sequence for all domains in parallel
+            worker_tasks = [run_domain_sequence(d, global_cfg) for d in enabled_domains]
+            await asyncio.gather(*worker_tasks)
+
+            logger.info("All activities completed. Entering 30-minute cooldown.")
+            await asyncio.sleep(1800)
+
     except asyncio.CancelledError:
         logger.info("Orchestrator tasks cancelled")
     except Exception as e:
         logger.error("Orchestrator encountered a critical error", error=str(e))
     finally:
+        api_task.cancel()
         await AsyncSessionManager.shutdown()
         logger.info("Orchestrator shut down complete.")
 
@@ -205,6 +167,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(orchestrator())
     except KeyboardInterrupt:
-        # Already handled by tasks being cancelled via signal handler if possible,
-        # or by asyncio.run's default behavior.
         pass
