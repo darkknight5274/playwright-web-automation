@@ -14,9 +14,10 @@ class LeagueActivity(BaseActivity):
 
     async def execute(self, page: Page):
         logger.info("League activity started", url=page.url)
+        await page.wait_for_timeout(2000)
 
         # Guard Logic
-        energy_locator = page.locator("div.challenge_points div.over span")
+        energy_locator = page.locator("#leagues .challenge_points .over span")
         try:
             await energy_locator.wait_for(state="visible", timeout=5000)
             energy_text = await energy_locator.inner_text()
