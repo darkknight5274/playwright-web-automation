@@ -85,13 +85,14 @@ class SeasonActivity(BaseActivity):
                 break
 
             # OK button handling
-            ok_btn = page.get_by_role("button", name="OK")
             try:
-                await ok_btn.wait_for(state="visible", timeout=10000)
+                await page.wait_for_selector('.popup_container', state='visible', timeout=10000)
+                ok_btn = page.locator('.popup_container button.orange_button_L:has-text("OK")')
                 await HumanUtils.human_click(page, ok_btn)
+                await page.wait_for_selector('.popup_container', state='hidden', timeout=10000)
                 await HumanUtils.random_jitter()
             except Exception:
-                logger.warning("OK button not found or not visible")
+                logger.warning("Post-battle modal not handled correctly")
                 break
 
         logger.info("Season activity completed")
