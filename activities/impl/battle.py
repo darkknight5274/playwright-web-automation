@@ -49,13 +49,12 @@ class BattleActivity(BaseActivity):
 
             # Click OK on reward popup
             try:
-                await page.wait_for_selector('.popup_container', state='visible', timeout=10000)
-                ok_btn = page.locator('.popup_container button.orange_button_L:has-text("OK")')
+                ok_btn = page.locator('button:has-text("OK")')
+                await ok_btn.wait_for(state="visible", timeout=8000)
                 await HumanUtils.human_click(page, ok_btn)
-                await page.wait_for_selector('.popup_container', state='hidden', timeout=10000)
+                await ok_btn.wait_for(state="hidden", timeout=5000)
                 await HumanUtils.random_jitter()
             except Exception:
-                logger.warning("Post-battle modal not handled correctly")
-                break
+                logger.warning("Action completed but no modal detected.")
 
         logger.info("Battle activity completed")

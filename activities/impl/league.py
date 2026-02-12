@@ -36,11 +36,6 @@ class LeagueActivity(BaseActivity):
                 points_text = await page.locator('.challenge_points span[energy=""]').inner_text()
                 points = int(points_text.replace(',', '').strip())
             except Exception:
-                domain = urllib.parse.urlparse(page.url).netloc
-                html_content = await page.content()
-                with open(f"debug_League{domain}.html", "w", encoding='utf-8') as f:
-                    f.write(html_content)
-                logger.info(f"Saved page source to debugLeague_{domain}.html for investigation.")
                 logger.warning("Could not determine challenge points, assuming 0")
                 points = 0
 
@@ -99,10 +94,11 @@ class LeagueActivity(BaseActivity):
                 break
 
             # Cleanup: common OK button
-            ok_btn = page.get_by_role("button", name="OK")
             try:
+                ok_btn = page.locator('button:has-text("OK")')
                 await ok_btn.wait_for(state="visible", timeout=10000)
                 await HumanUtils.human_click(page, ok_btn)
+                await ok_btn.wait_for(state="hidden", timeout=10000)
                 await HumanUtils.random_jitter()
             except Exception:
                 logger.warning("OK button not found or not visible")
