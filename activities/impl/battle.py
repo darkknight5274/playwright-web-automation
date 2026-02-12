@@ -5,6 +5,7 @@ from playwright.async_api import Page
 import structlog
 import yaml
 import os
+import asyncio
 
 logger = structlog.get_logger()
 
@@ -35,8 +36,16 @@ class BattleActivity(BaseActivity):
             energy_text = await page.locator('#fight_energy_bar span[energy=""]').inner_text()
             return int(energy_text.replace(',', '').strip())
         except Exception as e:
-            logger.warning("Could not determine energy, assuming 0", error=str(e))
-            return 0
+            logger.warning("Could not determine energy, retrying after reload...", error=str(e))
+            try:
+                await page.reload(wait_until="networkidle")
+                await asyncio.sleep(5)
+                await page.wait_for_selector('#fight_energy_bar span[energy=""]', timeout=5000)
+                energy_text = await page.locator('#fight_energy_bar span[energy=""]').inner_text()
+                return int(energy_text.replace(',', '').strip())
+            except Exception as e2:
+                logger.warning("Second attempt to determine energy failed, assuming 0", error=str(e2))
+                return 0
 
     async def execute(self, page: Page):
         logger.info("Battle activity started", url=page.url)
@@ -72,7 +81,14 @@ class BattleActivity(BaseActivity):
             target_url = f"{base_url}/troll-pre-battle.html?id_opponent={villain_id}"
 
             logger.info(f"Scouting target: {villain_name}...", url=target_url)
-            await page.goto(target_url, wait_until='networkidle')
+            for attempt in range(3):
+                try:
+                    await page.goto(target_url, wait_until='networkidle')
+                    break
+                except Exception as e:
+                    logger.warning(f"Navigation to {target_url} failed (Attempt {attempt+1}/3). Retrying...")
+                    await asyncio.sleep(10)
+                    if attempt == 2: raise e
             await HumanUtils.random_jitter()
 
             # Check for Reward Girl and fight until she's won or energy is gone

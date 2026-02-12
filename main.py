@@ -40,7 +40,14 @@ async def execute_activity(domain_name: str, domain_cfg: dict, activity_path: st
         logger.info("Executing activity", domain=domain_name, activity=activity_path, url=full_url)
         # Note: /collect is handled specially in its implementation
         if activity.path != "/collect":
-            await page.goto(full_url, wait_until='networkidle')
+            for attempt in range(3):
+                try:
+                    await page.goto(full_url, wait_until='networkidle')
+                    break
+                except Exception as e:
+                    logger.warning(f"Navigation to {full_url} failed (Attempt {attempt+1}/3). Retrying...")
+                    await asyncio.sleep(10)
+                    if attempt == 2: raise e
         await activity.execute(page)
         logger.info("Activity completed successfully", domain=domain_name, activity=activity_path)
     except Exception as e:
@@ -63,10 +70,19 @@ async def run_domain_sequence(domain_cfg: dict, global_cfg: dict):
         logger.info("Starting domain sequence", domain=domain_name)
         session = AsyncSessionManager()
         page = await session.start()
+        page.set_default_timeout(60000)
 
         # Navigation and Authentication check
         try:
-            await page.goto(domain_cfg["url"], wait_until='networkidle', timeout=30000)
+            for attempt in range(3):
+                try:
+                    await page.goto(domain_cfg["url"], wait_until='networkidle', timeout=30000)
+                    break
+                except Exception as e:
+                    logger.warning(f"Navigation to {domain_cfg['url']} failed (Attempt {attempt+1}/3). Retrying...")
+                    await asyncio.sleep(10)
+                    if attempt == 2: raise e
+
             if page.url == "about:blank":
                 raise Exception("Landed on about:blank")
         except Exception as e:
@@ -75,7 +91,14 @@ async def run_domain_sequence(domain_cfg: dict, global_cfg: dict):
 
         # Authentication Gating
         home_url = f"{domain_cfg['url'].rstrip('/')}/home.html"
-        await page.goto(home_url, wait_until='networkidle')
+        for attempt in range(3):
+            try:
+                await page.goto(home_url, wait_until='networkidle')
+                break
+            except Exception as e:
+                logger.warning(f"Navigation to {home_url} failed (Attempt {attempt+1}/3). Retrying...")
+                await asyncio.sleep(10)
+                if attempt == 2: raise e
 
         if await page.locator("//div[@title='DarkKnight']").is_visible(timeout=5000):
             logger.info("Active session detected", domain=domain_name)
@@ -157,7 +180,7 @@ async def orchestrator():
                     worker_tasks.append(task)
 
                     # Stagger starts to prevent network congestion
-                    delay = random.uniform(5, 12)
+                    delay = random.uniform(10, 20)
                     logger.info("Staggering domain start", domain=d["name"], delay=f"{delay:.2f}s")
                     await asyncio.sleep(delay)
 
