@@ -3,27 +3,26 @@ from activities.registry import ActivityRegistry
 from utils.human import HumanUtils
 from playwright.async_api import Page
 import structlog
+import yaml
+import os
 
 logger = structlog.get_logger()
 
-# Villain ID Mapping (Domain Agnostic)
-VILLAINS = {
-    "dark_lord": 1, "ninja_spy": 2, "gruntt": 3, "edwarda": 4,
-    "donatien": 5, "silvanus": 6, "bremen": 7, "finalmecia": 8,
-    "sensei": 9, "karole": 10, "jackson": 11, "pandora": 12,
-    "nike": 13, "sake": 14, "werebunny": 15, "auga": 16,
-    "gross": 17, "harriet": 18, "darth_excitor": 19
-}
-
-# The Order of Battle
-TARGET_PRIORITY = [
-    "dark_lord", "ninja_spy", "gruntt", "edwarda", "donatien", "silvanus",
-    "bremen", "finalmecia", "sensei", "karole", "jackson", "pandora",
-    "nike", "sake", "werebunny", "auga", "gross", "harriet", "darth_excitor"
-]
-
 @ActivityRegistry.register
 class BattleActivity(BaseActivity):
+    def __init__(self):
+        super().__init__()
+        self.villain_config = self.load_villain_config()
+
+    def load_villain_config(self):
+        config_path = os.path.join(os.getcwd(), 'config', 'villains.yaml')
+        try:
+            with open(config_path, 'r') as f:
+                return yaml.safe_load(f)
+        except Exception as e:
+            logger.error(f"Failed to load villains.yaml: {e}")
+            return {}
+
     @property
     def path(self) -> str:
         return "/troll-pre-battle.html"
@@ -43,14 +42,33 @@ class BattleActivity(BaseActivity):
         logger.info("Battle activity started", url=page.url)
         base_url = "/".join(page.url.split("/")[:3])
 
+        # Identify Domain
+        domain_key = "manga" # default
+        if "comic" in base_url: domain_key = "comic"
+        elif "star" in base_url: domain_key = "stars"
+        elif "hero" in base_url: domain_key = "hero"
+
+        # Get Config
+        domain_data = self.villain_config.get(domain_key, {})
+        villains_map = domain_data.get("villains", {})
+        target_list = domain_data.get("priority", [])
+
+        if not target_list:
+            logger.warning(f"No priority list found for {domain_key} in villains.yaml")
+            return
+
         energy = await self.get_energy(page)
 
-        for villain_name in TARGET_PRIORITY:
+        for villain_name in target_list:
             if energy <= 0:
                 logger.info("Energy depleted. Ending Battle Activity.")
                 break
 
-            villain_id = VILLAINS.get(villain_name)
+            villain_id = villains_map.get(villain_name)
+            if not villain_id:
+                logger.warning(f"Villain ID not found for {villain_name} in {domain_key} villains map. Skipping.")
+                continue
+
             target_url = f"{base_url}/troll-pre-battle.html?id_opponent={villain_id}"
 
             logger.info(f"Scouting target: {villain_name}...", url=target_url)
