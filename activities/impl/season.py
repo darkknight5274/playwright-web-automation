@@ -89,4 +89,7 @@ class SeasonActivity(BaseActivity):
             except Exception:
                 logger.warning("Action completed but no modal detected.")
 
+            # Task 2: Season Arena Synchronization
+            await page.wait_for_selector('.season_arena_opponent_container', state='visible', timeout=15000)
+
         logger.info("Season activity completed")
