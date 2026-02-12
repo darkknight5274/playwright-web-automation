@@ -105,16 +105,24 @@ class BattleActivity(BaseActivity):
             return 0
 
     async def execute(self, page: Page):
+        # a. Identify the current domain
         domain_key = self.get_domain(page.url)
-        logger.info("Battle activity started", url=page.url, domain=domain_key)
+        logger.info("Domain detected", url=page.url, domain=domain_key)
         base_url = "/".join(page.url.split("/")[:3])
 
-        # Get Config
-        domain_data = self.villain_config.get(domain_key)
+        # b. Load the config/villains.yaml file
+        config = self.load_villain_config()
+        if not config:
+            logger.warning("Villains config is empty or not found")
+            return
+
+        # c. Retrieve the 'priority' list for the current domain
+        domain_data = config.get(domain_key)
         if not domain_data:
             logger.warning(f"No configuration found for domain {domain_key} in villains.yaml")
             return
 
+        # d. Iterate through the priority list
         villains_map = domain_data.get("villains", {})
         target_list = domain_data.get("priority", [])
 
@@ -134,10 +142,11 @@ class BattleActivity(BaseActivity):
                 logger.warning("Villain ID not found in map", villain=villain_name, domain=domain_key)
                 continue
 
+            logger.info("Target selected", domain=domain_key, villain=villain_name, troll_id=villain_id)
             target_url = f"{base_url}/troll-pre-battle.html?id_opponent={villain_id}"
 
             if page.url != target_url:
-                logger.info("Scouting target", domain=domain_key, villain=villain_name, troll_id=villain_id, url=target_url)
+                logger.info("Navigating to target", url=target_url)
                 for attempt in range(3):
                     try:
                         await page.goto(target_url, wait_until='networkidle')
