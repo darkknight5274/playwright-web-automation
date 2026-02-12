@@ -1,4 +1,5 @@
 import asyncio
+import random
 import signal
 from datetime import datetime
 import structlog
@@ -149,8 +150,17 @@ async def orchestrator():
             try:
                 logger.info("Starting global activity iteration")
 
-                # Run Activity Sequence for all domains in parallel
-                worker_tasks = [run_domain_sequence(d, global_cfg) for d in enabled_domains]
+                # Run Activity Sequence for all domains with staggered starts
+                worker_tasks = []
+                for d in enabled_domains:
+                    task = asyncio.create_task(run_domain_sequence(d, global_cfg))
+                    worker_tasks.append(task)
+
+                    # Stagger starts to prevent network congestion
+                    delay = random.uniform(5, 12)
+                    logger.info("Staggering domain start", domain=d["name"], delay=f"{delay:.2f}s")
+                    await asyncio.sleep(delay)
+
                 await asyncio.gather(*worker_tasks)
 
                 logger.info("All activities completed. Entering 30-minute cooldown.")

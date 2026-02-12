@@ -48,14 +48,13 @@ class BattleActivity(BaseActivity):
             await HumanUtils.random_jitter()
 
             # Click OK on reward popup
-            ok_btn = page.get_by_role("button", name="OK")
             try:
-                await ok_btn.wait_for(state="visible", timeout=10000)
+                ok_btn = page.locator('button:has-text("OK")')
+                await ok_btn.wait_for(state="visible", timeout=8000)
                 await HumanUtils.human_click(page, ok_btn)
+                await ok_btn.wait_for(state="hidden", timeout=5000)
                 await HumanUtils.random_jitter()
             except Exception:
-                logger.warning("OK button not found or not visible")
-                # If OK button doesn't appear, maybe something is wrong, but we'll try next iteration or exit
-                break
+                logger.warning("Action completed but no modal detected.")
 
         logger.info("Battle activity completed")
