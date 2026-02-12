@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 from activities.runner import run_activity
 from activities.impl.home import HomeActivity
-from activities.impl.battle import BattleActivity
+from activities.impl.battle import BattleActivity, BATTLE_PATH
 from activities.impl.training import TrainingActivity
 from activities.impl.season import SeasonActivity
 from activities.impl.collect import CollectActivity
@@ -36,7 +36,7 @@ async def test_run_activity_home_enabled():
 @pytest.mark.asyncio
 async def test_run_activity_battle_enabled():
     page = MagicMock()
-    page.url = "https://www.mangarpg.com/troll-pre-battle.html"
+    page.url = f"https://www.mangarpg.com{BATTLE_PATH}"
 
     from unittest.mock import AsyncMock
     mock_execute = AsyncMock()
@@ -47,7 +47,7 @@ async def test_run_activity_battle_enabled():
 @pytest.mark.asyncio
 async def test_run_activity_game_v2_battle_enabled():
     page = MagicMock()
-    page.url = "https://www.comicrpg.com/troll-pre-battle.html"
+    page.url = f"https://www.comicrpg.com{BATTLE_PATH}"
 
     from unittest.mock import AsyncMock
     mock_execute = AsyncMock()

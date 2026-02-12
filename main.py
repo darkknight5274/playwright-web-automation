@@ -14,6 +14,7 @@ from activities.registry import ActivityRegistry
 from utils.session import ensure_authenticated, login
 from utils.human import HumanUtils
 from utils.api import app
+from activities.impl.battle import BATTLE_PATH
 import os
 import time
 
@@ -64,7 +65,10 @@ async def run_domain_sequence(domain_cfg: dict, global_cfg: dict):
     domain_name = domain_cfg["name"]
     activity_order = domain_cfg.get("activity_order") or global_cfg.get("global_settings", {}).get("activity_order", [])
     if not activity_order:
-        activity_order = ["/collect", "/troll-pre-battle.html", "/season-arena.html", "/leagues.html"]
+        activity_order = ["/collect", "{BATTLE_PATH}", "/season-arena.html", "/leagues.html"]
+
+    # Resolve placeholders in activity order
+    activity_order = [path.replace("{BATTLE_PATH}", BATTLE_PATH) for path in activity_order]
 
     try:
         logger.info("Starting domain sequence", domain=domain_name)

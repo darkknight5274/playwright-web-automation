@@ -1,8 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from activities.impl.battle import BattleActivity
-
-from unittest.mock import AsyncMock, MagicMock
+from activities.impl.battle import BattleActivity, BATTLE_PATH
 
 @pytest.mark.asyncio
 async def test_get_energy_success():
@@ -39,4 +37,4 @@ async def test_get_energy_failure():
 @pytest.mark.asyncio
 async def test_battle_activity_path():
     activity = BattleActivity()
-    assert activity.path == "/troll-pre-battle.html"
+    assert activity.path == BATTLE_PATH

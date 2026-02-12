@@ -9,11 +9,28 @@ import asyncio
 
 logger = structlog.get_logger()
 
+BATTLE_PATH = "/troll-pre-battle.html"
+
 @ActivityRegistry.register
 class BattleActivity(BaseActivity):
     def __init__(self):
         super().__init__()
         self.villain_config = self.load_villain_config()
+        self.page = None
+
+    @property
+    def base_url(self) -> str:
+        if not self.page:
+            return ""
+        return "/".join(self.page.url.split("/")[:3])
+
+    @property
+    def domain(self) -> str:
+        base_url = self.base_url
+        if "comic" in base_url: return "comic"
+        elif "star" in base_url: return "stars"
+        elif "hero" in base_url: return "hero"
+        return "manga"
 
     def load_villain_config(self):
         config_path = os.path.join(os.getcwd(), 'config', 'villains.yaml')
@@ -26,7 +43,7 @@ class BattleActivity(BaseActivity):
 
     @property
     def path(self) -> str:
-        return "/troll-pre-battle.html"
+        return BATTLE_PATH
 
     async def get_energy(self, page: Page) -> int:
         # 1. Wait for the container first (it loads before the text)
@@ -60,82 +77,77 @@ class BattleActivity(BaseActivity):
             return 0
 
     async def execute(self, page: Page):
+        self.page = page
         logger.info("Battle activity started", url=page.url)
-        base_url = "/".join(page.url.split("/")[:3])
 
-        # Identify Domain
-        domain_key = "manga" # default
-        if "comic" in base_url: domain_key = "comic"
-        elif "star" in base_url: domain_key = "stars"
-        elif "hero" in base_url: domain_key = "hero"
+        # 1. Load the config
+        config = self.load_villain_config()
+        domain_config = config.get(self.domain, {})
 
-        # Get Config
-        domain_data = self.villain_config.get(domain_key, {})
-        villains_map = domain_data.get("villains", {})
-        target_list = domain_data.get("priority", [])
+        # 2. Identify the target and its ID
+        priority_list = domain_config.get('priority', [])
+        villain_map = domain_config.get('villains', {})
 
-        if not target_list:
-            logger.warning(f"No priority list found for {domain_key} in villains.yaml")
+        if not priority_list:
+            logger.warning(f"No priority targets for {self.domain}. Skipping battle.")
             return
 
-        energy = await self.get_energy(page)
+        # For now, we take the first available priority target
+        target_name = priority_list[0]
+        target_id = villain_map.get(target_name, 1) # Default to 1 if not found
 
-        for villain_name in target_list:
-            if energy <= 0:
-                logger.info("Energy depleted. Ending Battle Activity.")
-                break
+        # 3. Construct the dynamic URL
+        target_url = f"{self.base_url}/troll-pre-battle.html?id_opponent={target_id}"
 
-            villain_id = villains_map.get(villain_name)
-            if not villain_id:
-                logger.warning(f"Villain ID not found for {villain_name} in {domain_key} villains map. Skipping.")
-                continue
+        logger.info(f"Targeting {target_name} (ID: {target_id}) on {self.domain}")
 
-            target_url = f"{base_url}/troll-pre-battle.html?id_opponent={villain_id}"
-
-            logger.info(f"Scouting target: {villain_name}...", url=target_url)
+        # 4. Navigate only if necessary
+        if target_url not in page.url:
             for attempt in range(3):
                 try:
-                    await page.goto(target_url, wait_until='networkidle')
+                    await page.goto(target_url, wait_until="networkidle")
                     break
                 except Exception as e:
                     logger.warning(f"Navigation to {target_url} failed (Attempt {attempt+1}/3). Retrying...")
                     await asyncio.sleep(10)
                     if attempt == 2: raise e
-            await HumanUtils.random_jitter()
 
-            # Check for Reward Girl and fight until she's won or energy is gone
-            while energy > 0:
-                try:
-                    # Quick check for the girl icon
-                    has_girl = await page.locator(".girl_ico").count() > 0
+        await HumanUtils.random_jitter()
+        energy = await self.get_energy(page)
 
-                    if not has_girl:
-                        logger.info(f"Target {villain_name} has no reward girl. Skipping.")
-                        break
+        # Check for Reward Girl and fight until she's won or energy is gone
+        while energy > 0:
+            try:
+                # Quick check for the girl icon
+                has_girl = await page.locator(".girl_ico").count() > 0
 
-                    logger.info(f"Target Acquired: {villain_name} has a reward! Engaging.")
-
-                    # Perform the fight
-                    fight_btn = page.locator('button:has-text("Fight!")')
-                    await HumanUtils.human_click(page, fight_btn)
-
-                    # Handle the Victory/Defeat Modal
-                    try:
-                        ok_btn = page.locator('.popup_container button.orange_button_L:has-text("OK")')
-                        await ok_btn.wait_for(state="visible", timeout=10000)
-                        await HumanUtils.human_click(page, ok_btn)
-                        await ok_btn.wait_for(state="hidden", timeout=5000)
-                        await HumanUtils.random_jitter()
-                    except Exception as e:
-                        logger.warning("Error handling post-battle modal", error=str(e))
-                        # Even if modal fails, try to continue or break if stuck
-                        break
-
-                    # Update energy for next iteration
-                    energy = await self.get_energy(page)
-
-                except Exception as e:
-                    logger.error(f"Combat error with {villain_name}", error=str(e))
+                if not has_girl:
+                    logger.info(f"Target {target_name} has no reward girl. Skipping.")
                     break
+
+                logger.info(f"Target Acquired: {target_name} has a reward! Engaging.")
+
+                # Perform the fight
+                fight_btn = page.locator('button:has-text("Fight!")')
+                await HumanUtils.human_click(page, fight_btn)
+
+                # Handle the Victory/Defeat Modal
+                try:
+                    ok_btn = page.locator('.popup_container button.orange_button_L:has-text("OK")')
+                    await ok_btn.wait_for(state="visible", timeout=10000)
+                    await HumanUtils.human_click(page, ok_btn)
+                    await ok_btn.wait_for(state="hidden", timeout=5000)
+                    await HumanUtils.random_jitter()
+                except Exception as e:
+                    logger.warning("Error handling post-battle modal", error=str(e))
+                    # Even if modal fails, try to continue or break if stuck
+                    break
+
+                # Update energy for next iteration
+                energy = await self.get_energy(page)
+
+            except Exception as e:
+                logger.error(f"Combat error with {target_name}", error=str(e))
+                break
 
         logger.info("Battle activity completed")
