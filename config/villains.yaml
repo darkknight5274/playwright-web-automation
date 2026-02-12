@@ -1,27 +1,22 @@
 manga:
   villains:
-    dark_lord: 1
-    ninja_spy: 2
-    gruntt: 3
-    edwarda: 4
+    jeshtar: 1
+    troll_hound: 3
   priority:
-    - dark_lord
-    - ninja_spy
-    - gruntt
+    - jeshtar
+    - troll_hound
 comic:
   villains:
-    joker_clone: 1
-    bane_cousin: 2
+    clown: 1
   priority:
-    - joker_clone
-    - bane_cousin
+    - clown
 stars:
   villains:
-    star_lord: 1
+    fanboy: 1
   priority:
-    - star_lord
+    - fanboy
 hero:
   villains:
-    super_dude: 1
+    henchman: 1
   priority:
-    - super_dude
+    - henchman

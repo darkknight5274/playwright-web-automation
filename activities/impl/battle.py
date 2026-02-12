@@ -29,23 +29,35 @@ class BattleActivity(BaseActivity):
         return "/troll-pre-battle.html"
 
     async def get_energy(self, page: Page) -> int:
-        """Extract and sanitize energy value from the page."""
+        # 1. Wait for the container first (it loads before the text)
         try:
-            # Wait for energy bar to ensure dynamic content is loaded
-            await page.wait_for_selector('#fight_energy_bar span[energy=""]', timeout=5000)
-            energy_text = await page.locator('#fight_energy_bar span[energy=""]').inner_text()
-            return int(energy_text.replace(',', '').strip())
+            await page.wait_for_selector('.energy_counter', state='visible', timeout=10000)
+        except:
+            logger.warning("Energy container not found. reloading...")
+            await page.reload()
+            await page.wait_for_load_state("networkidle")
+
+        # 2. Attempt to find the specific value span
+        try:
+            # Targeting the span with energy="" attribute
+            energy_locator = page.locator('#fight_energy_bar span[energy=""]')
+            await energy_locator.wait_for(state="visible", timeout=10000)
+            text = await energy_locator.inner_text()
+
+            # 3. Sanitize and Return
+            return int(text.replace(',', '').strip())
         except Exception as e:
-            logger.warning("Could not determine energy, retrying after reload...", error=str(e))
-            try:
-                await page.reload(wait_until="networkidle")
-                await asyncio.sleep(5)
-                await page.wait_for_selector('#fight_energy_bar span[energy=""]', timeout=5000)
-                energy_text = await page.locator('#fight_energy_bar span[energy=""]').inner_text()
-                return int(energy_text.replace(',', '').strip())
-            except Exception as e2:
-                logger.warning("Second attempt to determine energy failed, assuming 0", error=str(e2))
-                return 0
+            # Determine domain for the screenshot filename
+            domain = "unknown"
+            if "manga" in page.url: domain = "manga"
+            elif "comic" in page.url: domain = "comic"
+            elif "star" in page.url: domain = "stars"
+            elif "hero" in page.url: domain = "hero"
+
+            # Take a debug screenshot only if we truly fail
+            await page.screenshot(path=f"debug_energy_fail_{domain}.png")
+            logger.error(f"Failed to read energy after retry: {e}")
+            return 0
 
     async def execute(self, page: Page):
         logger.info("Battle activity started", url=page.url)
