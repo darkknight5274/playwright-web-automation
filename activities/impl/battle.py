@@ -6,56 +6,90 @@ import structlog
 
 logger = structlog.get_logger()
 
+# Villain ID Mapping (Domain Agnostic)
+VILLAINS = {
+    "dark_lord": 1, "ninja_spy": 2, "gruntt": 3, "edwarda": 4,
+    "donatien": 5, "silvanus": 6, "bremen": 7, "finalmecia": 8,
+    "sensei": 9, "karole": 10, "jackson": 11, "pandora": 12,
+    "nike": 13, "sake": 14, "werebunny": 15, "auga": 16,
+    "gross": 17, "harriet": 18, "darth_excitor": 19
+}
+
+# The Order of Battle
+TARGET_PRIORITY = [
+    "dark_lord", "ninja_spy", "gruntt", "edwarda", "donatien", "silvanus",
+    "bremen", "finalmecia", "sensei", "karole", "jackson", "pandora",
+    "nike", "sake", "werebunny", "auga", "gross", "harriet", "darth_excitor"
+]
+
 @ActivityRegistry.register
 class BattleActivity(BaseActivity):
     @property
     def path(self) -> str:
         return "/troll-pre-battle.html"
 
+    async def get_energy(self, page: Page) -> int:
+        """Extract and sanitize energy value from the page."""
+        try:
+            # Wait for energy bar to ensure dynamic content is loaded
+            await page.wait_for_selector('#fight_energy_bar span[energy=""]', timeout=5000)
+            energy_text = await page.locator('#fight_energy_bar span[energy=""]').inner_text()
+            return int(energy_text.replace(',', '').strip())
+        except Exception as e:
+            logger.warning("Could not determine energy, assuming 0", error=str(e))
+            return 0
+
     async def execute(self, page: Page):
         logger.info("Battle activity started", url=page.url)
+        base_url = "/".join(page.url.split("/")[:3])
 
-        while True:
-            # Ensure we have the query param if not present
-            if "?id_opponent=1" not in page.url:
-                base_url = page.url.split("?")[0]
-                await page.goto(f"{base_url}?id_opponent=1", wait_until='networkidle')
+        energy = await self.get_energy(page)
 
-            # Stale Element Protection: Wait for energy bar and fight button
-            try:
-                await page.wait_for_selector('#fight_energy_bar span[energy=""]', timeout=10000)
-                await page.wait_for_selector('button:has-text("Fight!")', timeout=10000)
-            except Exception as e:
-                logger.warning("Required elements not found, exiting loop", error=str(e))
-                break
-
-            # Guard Logic: Check energy
-            try:
-                energy_text = await page.locator('#fight_energy_bar span[energy=""]').inner_text()
-                energy = int(energy_text.replace(',', '').strip())
-            except Exception:
-                logger.warning("Could not determine energy, assuming 0")
-                energy = 0
-
+        for villain_name in TARGET_PRIORITY:
             if energy <= 0:
-                logger.info("No Energy Available", energy=energy)
+                logger.info("Energy depleted. Ending Battle Activity.")
                 break
 
-            # Execution
-            logger.info("Performing battle", current_energy=energy)
-            fight_btn = page.get_by_role("button", name="Fight! x1 1")
-            await HumanUtils.human_click(page, fight_btn)
+            villain_id = VILLAINS.get(villain_name)
+            target_url = f"{base_url}/troll-pre-battle.html?id_opponent={villain_id}"
+
+            logger.info(f"Scouting target: {villain_name}...", url=target_url)
+            await page.goto(target_url, wait_until='networkidle')
             await HumanUtils.random_jitter()
 
-            # Click OK on reward popup
-            try:
-                await page.wait_for_selector('.popup_container', state='visible', timeout=10000)
-                ok_btn = page.locator('.popup_container button.orange_button_L:has-text("OK")')
-                await HumanUtils.human_click(page, ok_btn)
-                await page.wait_for_selector('.popup_container', state='hidden', timeout=10000)
-                await HumanUtils.random_jitter()
-            except Exception:
-                logger.warning("Post-battle modal not handled correctly")
-                break
+            # Check for Reward Girl and fight until she's won or energy is gone
+            while energy > 0:
+                try:
+                    # Quick check for the girl icon
+                    has_girl = await page.locator(".girl_ico").count() > 0
+
+                    if not has_girl:
+                        logger.info(f"Target {villain_name} has no reward girl. Skipping.")
+                        break
+
+                    logger.info(f"Target Acquired: {villain_name} has a reward! Engaging.")
+
+                    # Perform the fight
+                    fight_btn = page.locator('button:has-text("Fight!")')
+                    await HumanUtils.human_click(page, fight_btn)
+
+                    # Handle the Victory/Defeat Modal
+                    try:
+                        ok_btn = page.locator('.popup_container button.orange_button_L:has-text("OK")')
+                        await ok_btn.wait_for(state="visible", timeout=10000)
+                        await HumanUtils.human_click(page, ok_btn)
+                        await ok_btn.wait_for(state="hidden", timeout=5000)
+                        await HumanUtils.random_jitter()
+                    except Exception as e:
+                        logger.warning("Error handling post-battle modal", error=str(e))
+                        # Even if modal fails, try to continue or break if stuck
+                        break
+
+                    # Update energy for next iteration
+                    energy = await self.get_energy(page)
+
+                except Exception as e:
+                    logger.error(f"Combat error with {villain_name}", error=str(e))
+                    break
 
         logger.info("Battle activity completed")
