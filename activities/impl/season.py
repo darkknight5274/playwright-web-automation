@@ -33,11 +33,6 @@ class SeasonActivity(BaseActivity):
                 kisses_text = await kiss_bar.locator('span[energy=""]').inner_text()
                 kisses = int(kisses_text.replace(',', '').strip())
             except Exception:
-                domain = urllib.parse.urlparse(page.url).netloc
-                html_content = await page.content()
-                with open(f"debug_Season{domain}.html", "w", encoding='utf-8') as f:
-                    f.write(html_content)
-                logger.info(f"Saved page source to debugSeason_{domain}.html for investigation.")
                 logger.warning("Could not determine kisses, assuming 0")
                 kisses = 0
 
@@ -86,13 +81,12 @@ class SeasonActivity(BaseActivity):
 
             # OK button handling
             try:
-                await page.wait_for_selector('.popup_container', state='visible', timeout=10000)
-                ok_btn = page.locator('.popup_container button.orange_button_L:has-text("OK")')
+                ok_btn = page.locator('button:has-text("OK")')
+                await ok_btn.wait_for(state="visible", timeout=8000)
                 await HumanUtils.human_click(page, ok_btn)
-                await page.wait_for_selector('.popup_container', state='hidden', timeout=10000)
+                await ok_btn.wait_for(state="hidden", timeout=5000)
                 await HumanUtils.random_jitter()
             except Exception:
-                logger.warning("Post-battle modal not handled correctly")
-                break
+                logger.warning("Action completed but no modal detected.")
 
         logger.info("Season activity completed")

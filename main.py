@@ -157,7 +157,7 @@ async def orchestrator():
                     worker_tasks.append(task)
 
                     # Stagger starts to prevent network congestion
-                    delay = random.uniform(5, 10)
+                    delay = random.uniform(5, 12)
                     logger.info("Staggering domain start", domain=d["name"], delay=f"{delay:.2f}s")
                     await asyncio.sleep(delay)
 
