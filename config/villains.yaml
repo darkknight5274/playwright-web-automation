@@ -1,0 +1,27 @@
+manga:
+  villains:
+    dark_lord: 1
+    ninja_spy: 2
+    gruntt: 3
+    edwarda: 4
+  priority:
+    - dark_lord
+    - ninja_spy
+    - gruntt
+comic:
+  villains:
+    joker_clone: 1
+    bane_cousin: 2
+  priority:
+    - joker_clone
+    - bane_cousin
+stars:
+  villains:
+    star_lord: 1
+  priority:
+    - star_lord
+hero:
+  villains:
+    super_dude: 1
+  priority:
+    - super_dude
