@@ -5,6 +5,31 @@ from playwright.async_api import async_playwright
 from utils.logger import logger
 from utils.config_loader import load_config
 
+async def handle_age_gate(page):
+    """Detects and accepts age verification popups."""
+    try:
+        # Check for the common age verification container
+        age_gate = page.locator('#common-popups .age-verification')
+
+        # Wait for visibility with a short timeout
+        try:
+            await age_gate.wait_for(state="visible", timeout=3000)
+        except:
+            pass
+
+        if await age_gate.is_visible():
+            logger.info("Age verification detected. Attempting to enter...")
+
+            # Try to find the 'Enter' or 'I am 18' button
+            enter_btn = age_gate.locator('button').first
+            await enter_btn.click()
+
+            # Wait for the popup to disappear
+            await age_gate.wait_for(state='hidden', timeout=5000)
+            logger.info("Age verification cleared.")
+    except Exception as e:
+        logger.debug(f"Age gate check skipped or failed: {e}")
+
 async def block_images(route):
     if route.request.resource_type == "image":
         await route.abort()
@@ -64,6 +89,7 @@ async def ensure_authenticated():
         # 3. Open Auth Modal: await page.get_by_role("link", name="Login").click()
         logger.info("Opening auth modal.")
         try:
+            await handle_age_gate(page)
             # We use force=True because we've seen it's often blocked by a transparent overlay
             await page.get_by_role("link", name="Login").click(force=True, timeout=10000)
             logger.info("Clicked Login link.")
@@ -93,8 +119,8 @@ async def ensure_authenticated():
             logger.info("Filling credentials.")
             try:
                 # We use fill which handles waiting for visibility
-                await auth_frame.get_by_role("textbox", name="E-mail").fill(username, timeout=10000)
-                await auth_frame.get_by_role("textbox", name="Password").fill(password, timeout=10000)
+                await auth_frame.get_by_role("textbox", name="E-mail").fill(username or "", timeout=10000)
+                await auth_frame.locator('input[name="password"]').fill(password or "", timeout=10000)
 
                 # 6. Submit: await auth_frame.get_by_role("button", name="Play Now").click()
                 logger.info("Submitting login form.")
@@ -140,18 +166,19 @@ async def login(page, domain_url):
             return True
 
         logger.info("Session not detected, clicking Login link.")
+        await handle_age_gate(page)
         await page.get_by_role("link", name="Login").click()
 
-        frame_locator = page.locator("#authentication-iframe")
-        frame = frame_locator.content_frame
+        auth_frame = page.frame_locator("#authentication-iframe")
 
         # Wait Strategy
-        await frame.get_by_role("textbox", name="E-mail").wait_for(state="visible", timeout=10000)
+        await auth_frame.get_by_role("textbox", name="E-mail").wait_for(state="visible", timeout=10000)
 
-        await frame.get_by_role("textbox", name="E-mail").click()
-        await frame.get_by_role("textbox", name="E-mail").fill(os.getenv('GAME_USERNAME'))
-        await frame.get_by_role("textbox", name="Password").fill(os.getenv('GAME_PASSWORD'))
-        await frame.get_by_role("button", name="Play Now").click()
+        await auth_frame.get_by_role("textbox", name="E-mail").click()
+        await auth_frame.get_by_role("textbox", name="E-mail").fill(os.getenv('GAME_USERNAME'))
+        # Using specific CSS selector for password field as requested for Manga fix
+        await auth_frame.locator('input[name="password"]').fill(os.getenv('GAME_PASSWORD') or "")
+        await auth_frame.get_by_role("button", name="Play Now").click()
 
         # Verification
         try:
