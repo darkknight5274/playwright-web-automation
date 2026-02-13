@@ -1,6 +1,11 @@
 from typing import Dict, Type, List
 from activities.base import BaseActivity
 
+TASK_MAPPING = {
+    "/home": None,  # To be populated at the end of the module
+    "/battle": None,
+}
+
 class ActivityRegistry:
     _registry: Dict[str, BaseActivity] = {}
 
@@ -18,7 +23,13 @@ class ActivityRegistry:
         """
         Retrieves an activity instance by its path.
         """
-        return cls._registry.get(path)
+        instance = cls._registry.get(path)
+        if not instance and path in TASK_MAPPING:
+            activity_class = TASK_MAPPING[path]
+            if activity_class:
+                instance = activity_class()
+                cls._registry[path] = instance
+        return instance
 
     @classmethod
     def get_all_paths(cls) -> List[str]:
@@ -35,3 +46,9 @@ import activities.impl.training
 import activities.impl.season
 import activities.impl.collect
 import activities.impl.league
+
+TASK_MAPPING.update({
+    "/home": activities.impl.home.HomeActivity,
+    "/battle": activities.impl.battle.BattleActivity,
+    "/troll-pre-battle.html": activities.impl.battle.BattleActivity,
+})
